@@ -1,0 +1,1022 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>📋 问卷星自动填写平台</title>
+    <style>
+        :root {
+            --primary: #4361ee;
+            --primary-light: #eef0ff;
+            --primary-dark: #3a56d4;
+            --success: #10b981;
+            --danger: #ef4444;
+            --warning: #f59e0b;
+            --bg: #f1f5f9;
+            --card: #ffffff;
+            --text: #1e293b;
+            --text-secondary: #64748b;
+            --border: #e2e8f0;
+            --radius: 10px;
+            --shadow: 0 1px 3px rgba(0,0,0,.06), 0 1px 2px rgba(0,0,0,.04);
+            --shadow-lg: 0 10px 40px rgba(0,0,0,.1);
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", "Noto Sans SC", sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            min-height: 100vh;
+            line-height: 1.6;
+        }
+
+        /* ====== 头部导航 ====== */
+        .header {
+            background: var(--card);
+            border-bottom: 1px solid var(--border);
+            padding: 0 24px;
+            height: 60px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            box-shadow: var(--shadow);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+        .header .logo {
+            font-size: 18px;
+            font-weight: 700;
+            color: var(--primary);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .header .logo span { font-size: 22px; }
+        .header .links { display: flex; gap: 16px; font-size: 13px; }
+        .header .links a {
+            color: var(--text-secondary); text-decoration: none; transition: color .2s;
+        }
+        .header .links a:hover { color: var(--primary); }
+
+        /* ====== 主布局 ====== */
+        .container {
+            max-width: 1100px;
+            margin: 0 auto;
+            padding: 24px 20px 60px;
+        }
+
+        /* ====== 卡片通用 ====== */
+        .card {
+            background: var(--card);
+            border-radius: var(--radius);
+            box-shadow: var(--shadow);
+            padding: 24px;
+            margin-bottom: 20px;
+            border: 1px solid var(--border);
+        }
+        .card-header {
+            font-size: 16px;
+            font-weight: 700;
+            margin-bottom: 16px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        /* ====== Step 1: 输入链接 ====== */
+        .input-row {
+            display: flex;
+            gap: 12px;
+        }
+        .input-row input {
+            flex: 1;
+            padding: 12px 16px;
+            border: 2px solid var(--border);
+            border-radius: var(--radius);
+            font-size: 15px;
+            outline: none;
+            transition: border-color .25s;
+        }
+        .input-row input:focus { border-color: var(--primary); }
+        .input-row input::placeholder { color: #c0c8d4; }
+
+        .btn {
+            padding: 10px 22px;
+            border: none;
+            border-radius: var(--radius);
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all .2s;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            white-space: nowrap;
+            font-family: inherit;
+        }
+        .btn:disabled {
+            opacity: .55; cursor: not-allowed; pointer-events: none;
+        }
+        .btn-primary {
+            background: var(--primary); color: #fff;
+        }
+        .btn-primary:hover { background: var(--primary-dark); transform: translateY(-1px); box-shadow: 0 4px 12px rgba(67,97,238,.3); }
+        .btn-success {
+            background: var(--success); color: #fff;
+        }
+        .btn-success:hover { filter: brightness(1.1); transform: translateY(-1px); }
+        .btn-danger {
+            background: var(--danger); color: #fff;
+        }
+        .btn-outline {
+            background: #fff; color: var(--primary); border: 1.5px solid var(--primary);
+        }
+        .btn-outline:hover { background: var(--primary-light); }
+        .btn-lg { padding: 14px 32px; font-size: 16px; }
+        .btn-sm { padding: 6px 14px; font-size: 12px; }
+
+        .url-examples {
+            margin-top: 10px;
+            font-size: 12px;
+            color: var(--text-secondary);
+        }
+        .url-examples code {
+            background: #f1f5f9;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-size: 11px;
+            cursor: pointer;
+            transition: background .2s;
+        }
+        .url-examples code:hover { background: #e2e8f0; color: var(--primary); }
+
+        /* ====== Step 2: 题目列表 ====== */
+        .survey-info {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 14px 18px;
+            background: var(--primary-light);
+            border-radius: var(--radius);
+            margin-bottom: 16px;
+        }
+        .survey-info .s-icon { font-size: 24px; }
+        .survey-info .s-title { font-weight: 600; }
+        .survey-info .s-count { font-size: 13px; color: var(--text-secondary); margin-left: auto; }
+
+        .q-list { display: flex; flex-direction: column; gap: 12px; }
+
+        .q-item {
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 14px 16px;
+            transition: border-color .2s;
+            background: #fafbfc;
+        }
+        .q-item:hover { border-color: #bcc7d6; }
+        .q-item .q-header {
+            display: flex;
+            align-items: flex-start;
+            gap: 10px;
+            margin-bottom: 8px;
+        }
+        .q-item .q-num {
+            background: var(--primary);
+            color: #fff;
+            width: 24px; height: 24px;
+            border-radius: 50%;
+            font-size: 12px;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            margin-top: 1px;
+        }
+        .q-item .q-type-badge {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 10px;
+            font-weight: 600;
+            flex-shrink: 0;
+            margin-top: 2px;
+        }
+        .q-item .q-type-badge.radio { background: #dbeafe; color: #2563eb; }
+        .q-item .q-type-badge.checkbox { background: #fef3c7; color: #d97706; }
+        .q-item .q-type-badge.text { background: #fce7f3; color: #db2777; }
+        .q-item .q-type-badge.star { background: #fef9c3; color: #ca8a04; }
+        .q-item .q-type-badge.select { background: #e0e7ff; color: #4f46e5; }
+        .q-item .q-type-badge.matrix { background: #f3e8ff; color: #7c3aed; }
+
+        .q-item .q-title {
+            flex: 1;
+            font-size: 14px;
+            color: var(--text);
+            line-height: 1.5;
+        }
+        .q-item .q-control {
+            margin-left: 34px;
+        }
+        .q-item .q-control select {
+            width: 100%;
+            padding: 8px 10px;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            font-size: 13px;
+            background: #fff;
+            font-family: inherit;
+        }
+        .q-item .q-control textarea,
+        .q-item .q-control input[type="text"] {
+            width: 100%;
+            padding: 8px 12px;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            font-size: 13px;
+            font-family: inherit;
+            resize: vertical;
+        }
+        .q-item .q-opts-info {
+            font-size: 11px;
+            color: var(--text-secondary);
+            margin-top: 6px;
+        }
+
+        /* ====== Step 3: 任务配置 ====== */
+        .config-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 16px;
+        }
+        .config-item label {
+            display: block;
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--text-secondary);
+            margin-bottom: 6px;
+        }
+        .config-item input {
+            width: 100%;
+            padding: 10px 14px;
+            border: 1.5px solid var(--border);
+            border-radius: 8px;
+            font-size: 14px;
+            outline: none;
+            transition: border-color .2s;
+        }
+        .config-item input:focus { border-color: var(--primary); }
+
+        /* ====== 进度面板 ====== */
+        .progress-overlay {
+            background: var(--card);
+            border-radius: var(--radius);
+            box-shadow: var(--shadow-lg);
+            border: 1px solid var(--border);
+            padding: 24px;
+            margin-bottom: 20px;
+            display: none;
+        }
+        .progress-overlay.active { display: block; }
+
+        .progress-bar-outer {
+            height: 10px;
+            background: #e2e8f0;
+            border-radius: 5px;
+            margin: 16px 0;
+            overflow: hidden;
+        }
+        .progress-bar-inner {
+            height: 100%;
+            background: linear-gradient(90deg, var(--primary), #7c3aed);
+            border-radius: 5px;
+            transition: width .3s;
+            width: 0%;
+        }
+        .progress-stats {
+            display: flex;
+            gap: 24px;
+            justify-content: center;
+            font-size: 14px;
+        }
+        .progress-stats .stat {
+            text-align: center;
+        }
+        .progress-stats .stat .val {
+            font-size: 28px;
+            font-weight: 700;
+        }
+        .progress-stats .stat .val.ok { color: var(--success); }
+        .progress-stats .stat .val.bad { color: var(--danger); }
+        .progress-stats .stat .lbl { font-size: 12px; color: var(--text-secondary); }
+
+        .log-stream {
+            background: #1e293b;
+            color: #cbd5e1;
+            border-radius: 8px;
+            padding: 12px 16px;
+            font-family: "Cascadia Code", "Fira Code", "Consolas", "Source Code Pro", monospace;
+            font-size: 12px;
+            max-height: 200px;
+            overflow-y: auto;
+            line-height: 1.7;
+            margin-top: 12px;
+        }
+        .log-stream .ts { color: #64748b; margin-right: 8px; }
+        .log-stream .ok { color: #34d399; }
+        .log-stream .bad { color: #f87171; }
+        .log-stream .info { color: #60a5fa; }
+
+        /* ====== Toast ====== */
+        .toast-container {
+            position: fixed; top: 20px; left: 50%;
+            transform: translateX(-50%);
+            z-index: 9999;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            pointer-events: none;
+        }
+        .toast {
+            padding: 12px 24px;
+            border-radius: 8px;
+            color: #fff;
+            font-size: 14px;
+            font-weight: 500;
+            box-shadow: 0 4px 16px rgba(0,0,0,.2);
+            animation: toastIn .3s ease-out;
+            pointer-events: auto;
+        }
+        .toast.error { background: var(--danger); }
+        .toast.success { background: var(--success); }
+        .toast.info { background: var(--primary); }
+        @keyframes toastIn {
+            from { opacity: 0; transform: translateY(-10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* ====== 空状态 ====== */
+        .empty-state {
+            text-align: center;
+            padding: 40px 20px;
+            color: var(--text-secondary);
+        }
+        .empty-state .icon { font-size: 48px; margin-bottom: 12px; }
+
+        /* ====== 页脚 ====== */
+        .footer {
+            text-align: center;
+            padding: 20px;
+            font-size: 12px;
+            color: var(--text-secondary);
+        }
+        .footer a { color: var(--primary); text-decoration: none; }
+
+        /* ====== 响应式 ====== */
+        @media (max-width: 640px) {
+            .container { padding: 12px 10px 40px; }
+            .card { padding: 16px; }
+            .input-row { flex-direction: column; }
+            .config-grid { grid-template-columns: 1fr 1fr; }
+            .header .links { display: none; }
+        }
+
+        /* ====== 加载动画 ====== */
+        .spinner {
+            width: 18px; height: 18px;
+            border: 2.5px solid #fff;
+            border-top-color: transparent;
+            border-radius: 50%;
+            animation: spin .6s linear infinite;
+            display: inline-block;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+    </style>
+</head>
+<body>
+
+    <!-- ====== 顶部 ====== -->
+    <div class="header">
+        <div class="logo"><span>📋</span> 问卷星自动填写平台</div>
+        <div class="links">
+            <a href="#how">📖 使用说明</a>
+            <span style="color:#c0c8d4;">v1.0</span>
+        </div>
+    </div>
+
+    <!-- Toast -->
+    <div class="toast-container" id="toasts"></div>
+
+    <!-- ====== 主内容 ====== -->
+    <div class="container">
+
+        <!-- ──── Step 1: 输入问卷链接 ──── -->
+        <div class="card">
+            <div class="card-header">🔗 Step 1 — 输入问卷星链接</div>
+            <div class="input-row">
+                <input
+                    type="text"
+                    id="urlInput"
+                    placeholder="粘贴问卷星链接，例如: https://www.wjx.cn/vm/xxxxxx.aspx"
+                    autocomplete="url"
+                >
+                <button class="btn btn-primary btn-lg" id="btnAnalyze" onclick="analyzeSurvey()">
+                    🔍 分析问卷
+                </button>
+            </div>
+            <div class="url-examples" style="margin-top:12px;">
+                试试示例：
+                <code onclick="fillExample(this)">https://www.wjx.cn/vm/PpSukPx.aspx</code>
+            </div>
+        </div>
+
+        <!-- ──── Step 2: 题目列表 & 自定义答案 ──── -->
+        <div class="card" id="step2Card" style="display:none;">
+            <div class="card-header">📝 Step 2 — 题目列表 & 自定义答案</div>
+            <div class="survey-info" id="surveyInfo" style="display:none;"></div>
+            <div class="q-list" id="qList"></div>
+            <div class="empty-state" id="qEmpty">
+                <div class="icon">📭</div>
+                <p>输入链接后点击「分析问卷」即可看到题目</p>
+            </div>
+        </div>
+
+        <!-- ──── Step 3: 任务配置 ──── -->
+        <div class="card" id="step3Card" style="display:none;">
+            <div class="card-header">⚙️ Step 3 — 配置提交任务</div>
+            <div class="config-grid">
+                <div class="config-item">
+                    <label>📦 提交份数</label>
+                    <input type="number" id="submitCount" value="10" min="1" max="500" placeholder="1-500">
+                </div>
+                <div class="config-item">
+                    <label>⏱ 间隔时间 (毫秒)</label>
+                    <input type="number" id="submitDelay" value="800" min="200" max="10000" placeholder="200-10000">
+                </div>
+                <div class="config-item">
+                    <label>🎲 答案模式</label>
+                    <select id="answerMode" style="width:100%;padding:10px 14px;border:1.5px solid var(--border);border-radius:8px;font-size:14px;outline:none;">
+                        <option value="random">随机选择（每题随机选）</option>
+                        <option value="custom">自定义（使用下方设定）</option>
+                        <option value="mixed">混合（自定义优先，未设定则随机）</option>
+                    </select>
+                </div>
+            </div>
+            <div style="margin-top:16px;display:flex;gap:12px;flex-wrap:wrap;">
+                <button class="btn btn-success btn-lg" id="btnStart" onclick="startBatch()">
+                    🚀 开始批量提交
+                </button>
+                <button class="btn btn-danger btn-lg" id="btnStop" onclick="stopBatch()" disabled>
+                    ⏹ 停止
+                </button>
+                <button class="btn btn-outline" onclick="exportConfig()">
+                    💾 导出配置
+                </button>
+                <button class="btn btn-outline" onclick="document.getElementById('importFile').click()">
+                    📥 导入配置
+                </button>
+                <input type="file" id="importFile" accept=".json" style="display:none;" onchange="importConfig(this)">
+            </div>
+        </div>
+
+        <!-- ──── 进度面板 ──── -->
+        <div class="progress-overlay" id="progressPanel">
+            <div class="card-header">📊 任务进度</div>
+            <div class="progress-bar-outer">
+                <div class="progress-bar-inner" id="progressBar"></div>
+            </div>
+            <div class="progress-stats">
+                <div class="stat">
+                    <div class="val" id="statTotal">0</div>
+                    <div class="lbl">总计划</div>
+                </div>
+                <div class="stat">
+                    <div class="val ok" id="statOk">0</div>
+                    <div class="lbl">✅ 成功</div>
+                </div>
+                <div class="stat">
+                    <div class="val bad" id="statFail">0</div>
+                    <div class="lbl">❌ 失败</div>
+                </div>
+                <div class="stat">
+                    <div class="val" id="statPct" style="color:var(--primary);">0%</div>
+                    <div class="lbl">进度</div>
+                </div>
+            </div>
+            <div class="log-stream" id="logStream">
+                <span class="info">📋 等待任务开始...</span>
+            </div>
+        </div>
+
+        <!-- ──── 使用说明 ──── -->
+        <div class="card" id="how">
+            <div class="card-header">📖 使用说明</div>
+            <ol style="padding-left:20px;color:var(--text-secondary);font-size:14px;line-height:2;">
+                <li>在 <b>Step 1</b> 粘贴问卷星的问卷链接（如 <code>https://www.wjx.cn/vm/xxxx.aspx</code>）</li>
+                <li>点击「分析问卷」，系统会自动解析问卷中的所有题目</li>
+                <li>在 <b>Step 2</b> 查看每道题，可以<strong>自定义答案</strong>（选特定选项、填特定文字）</li>
+                <li>在 <b>Step 3</b> 设置要提交的份数、提交间隔、答案模式</li>
+                <li>点击「开始批量提交」，实时查看进度</li>
+                <li>支持<strong>导出/导入配置</strong>，下次直接加载配置不用重新设置</li>
+            </ol>
+            <div style="margin-top:12px;padding:12px;background:#fef9c3;border-radius:8px;font-size:13px;color:#92400e;">
+                ⚠️ <strong>免责声明：</strong>本工具仅供学习前端与后端技术之用。请勿用于刷票、刷数据等违规行为。使用者需自行承担由此产生的一切责任。
+            </div>
+        </div>
+    </div>
+
+    <!-- 页脚 -->
+    <div class="footer">
+        Questionnaire Auto Filler — for educational purposes only — <a href="https://github.com" target="_blank">GitHub</a>
+    </div>
+
+    <script>
+        // ============================================================
+        //  全局状态
+        // ============================================================
+        let surveyData = null;        // 问卷分析结果
+        let isRunning = false;
+        let abortController = null;
+
+        // DOM 缓存
+        const $ = (s) => document.querySelector(s);
+        const $$ = (s) => document.querySelectorAll(s);
+
+        // ============================================================
+        //  Toast
+        // ============================================================
+        function showToast(msg, type = 'info') {
+            const container = $('#toasts');
+            const div = document.createElement('div');
+            div.className = `toast ${type}`;
+            div.textContent = msg;
+            container.appendChild(div);
+            setTimeout(() => {
+                div.style.opacity = '0';
+                div.style.transition = 'opacity .3s';
+                setTimeout(() => div.remove(), 300);
+            }, 3000);
+        }
+
+        // ============================================================
+        //  示例填充
+        // ============================================================
+        function fillExample(el) {
+            $('#urlInput').value = el.textContent.trim();
+        }
+
+        // ============================================================
+        //  Step 1: 分析问卷
+        // ============================================================
+        async function analyzeSurvey() {
+            const url = $('#urlInput').value.trim();
+            if (!url) {
+                showToast('请先输入问卷链接', 'error');
+                return;
+            }
+            if (!url.includes('wjx.cn') && !url.includes('wjx.com') && !url.includes('wjx.top') && !url.includes('sojump.com')) {
+                showToast('请输入有效的问卷星链接', 'error');
+                return;
+            }
+
+            const btn = $('#btnAnalyze');
+            btn.disabled = true;
+            btn.innerHTML = '<span class="spinner"></span> 分析中...';
+            $('#step2Card').style.display = 'block';
+
+            try {
+                const resp = await fetch('/api/analyze', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ url }),
+                });
+
+                const data = await resp.json();
+                if (!data.success) {
+                    showToast(data.error || '分析失败', 'error');
+                    $('#surveyInfo').style.display = 'none';
+                    $('#qList').innerHTML = '';
+                    $('#qEmpty').style.display = 'block';
+                    return;
+                }
+
+                surveyData = data;
+                console.log('[分析结果]', data);
+
+                // 显示问卷信息
+                $('#surveyInfo').style.display = 'flex';
+                $('#surveyInfo').innerHTML = `
+                    <span class="s-icon">📋</span>
+                    <span class="s-title">${escHtml(data.title)}</span>
+                    <span class="s-count">共 <b>${data.questionCount}</b> 道题目</span>
+                `;
+
+                // 渲染题目列表
+                renderQuestionList(data.questions);
+                $('#qEmpty').style.display = 'none';
+
+                // 显示 Step 3
+                $('#step3Card').style.display = 'block';
+                $('#step3Card').scrollIntoView({ behavior: 'smooth', block: 'center' });
+
+                showToast(`✅ 分析完成！检测到 ${data.questionCount} 道题目`, 'success');
+
+            } catch (err) {
+                console.error(err);
+                showToast(`网络错误: ${err.message}`, 'error');
+                $('#surveyInfo').style.display = 'none';
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = '🔍 分析问卷';
+            }
+        }
+
+        // ============================================================
+        //  Step 2: 渲染题目列表
+        // ============================================================
+        const TYPE_NAMES = {
+            radio:    { label: '单选', cls: 'radio' },
+            checkbox: { label: '多选', cls: 'checkbox' },
+            text:     { label: '填空', cls: 'text' },
+            textarea: { label: '多行文本', cls: 'text' },
+            select:   { label: '下拉', cls: 'select' },
+            star:     { label: '评分', cls: 'star' },
+            matrix:   { label: '矩阵', cls: 'matrix' },
+            scale:    { label: '量表', cls: 'matrix' },
+            sort:     { label: '排序', cls: 'select' },
+        };
+
+        function renderQuestionList(questions) {
+            const list = $('#qList');
+            if (!questions || questions.length === 0) {
+                list.innerHTML = '';
+                $('#qEmpty').style.display = 'block';
+                return;
+            }
+
+            // 尝试加载已保存配置
+            const saved = loadSavedConfig();
+
+            list.innerHTML = questions.map((q, i) => {
+                const t = TYPE_NAMES[q.type] || { label: q.type, cls: '' };
+                const savedCfg = saved?.[q.fieldName] || saved?.[`q${i}`] || {};
+
+                let controlHtml = '';
+                switch (q.type) {
+                    case 'radio':
+                    case 'select':
+                        if (q.options.length > 0) {
+                            const savedVal = savedCfg.val || '-1';
+                            controlHtml = `
+                                <select data-field="${q.fieldName}" data-idx="${i}" data-type="${q.type}">
+                                    <option value="-1">🎲 随机选择</option>
+                                    ${q.options.map((o, oi) => `
+                                        <option value="${escHtml(o.val)}" ${String(o.val) === String(savedVal) ? 'selected' : ''}>
+                                            ${String.fromCharCode(65 + oi)}. ${escHtml(o.text || o.val)}
+                                        </option>
+                                    `).join('')}
+                                </select>`;
+                        } else {
+                            controlHtml = `<span style="color:#888;font-size:12px;">无选项信息，将随机填写</span>`;
+                        }
+                        break;
+
+                    case 'checkbox':
+                        if (q.options.length > 0) {
+                            const savedVals = savedCfg.vals || [];
+                            controlHtml = `
+                                <div style="display:flex;flex-wrap:wrap;gap:8px;">
+                                    ${q.options.map((o, oi) => `
+                                        <label style="font-size:12px;display:flex;align-items:center;gap:4px;cursor:pointer;">
+                                            <input type="checkbox" data-field="${q.fieldName}" data-idx="${i}"
+                                                data-val="${escHtml(o.val)}" ${savedVals.includes(o.val) ? 'checked' : ''}>
+                                            ${escHtml(o.text || o.val)}
+                                        </label>
+                                    `).join('')}
+                                </div>`;
+                        } else {
+                            controlHtml = `<span style="color:#888;font-size:12px;">无选项信息，将随机勾选1-3个</span>`;
+                        }
+                        break;
+
+                    case 'text':
+                    case 'textarea':
+                        controlHtml = `
+                            <textarea rows="2" data-field="${q.fieldName}" data-idx="${i}" data-type="text"
+                                placeholder="留空则随机生成文本">${escHtml(savedCfg.text || '')}</textarea>`;
+                        break;
+
+                    case 'star':
+                        controlHtml = `
+                            <select data-field="${q.fieldName}" data-idx="${i}" data-type="star">
+                                <option value="-1">🎲 随机3-5星</option>
+                                ${[1,2,3,4,5].map(n => `
+                                    <option value="${n}" ${savedCfg.val === String(n) ? 'selected' : ''}>${'★'.repeat(n)}${'☆'.repeat(5 - n)}</option>
+                                `).join('')}
+                            </select>`;
+                        break;
+
+                    default:
+                        controlHtml = `<span style="font-size:12px;color:#888;">自动随机处理</span>`;
+                }
+
+                return `
+                    <div class="q-item">
+                        <div class="q-header">
+                            <span class="q-num">${i + 1}</span>
+                            <span class="q-type-badge ${t.cls}">${t.label}</span>
+                            <span class="q-title">${escHtml(q.title)}</span>
+                        </div>
+                        <div class="q-control">${controlHtml}</div>
+                        ${q.options.length > 0 ? `<div class="q-opts-info">📎 共 ${q.options.length} 个选项</div>` : ''}
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // ============================================================
+        //  收集用户自定义配置
+        // ============================================================
+        function collectCustomConfig() {
+            const config = {};
+            const qList = $('#qList');
+
+            qList.querySelectorAll('.q-item').forEach((item, i) => {
+                // 下拉/select
+                const select = item.querySelector('select');
+                if (select) {
+                    const val = select.value;
+                    if (val !== '-1') {
+                        const fieldName = select.dataset.field;
+                        if (fieldName) config[fieldName] = { val };
+                    }
+                }
+
+                // checkbox
+                const checks = item.querySelectorAll('input[type="checkbox"]:checked');
+                if (checks.length > 0) {
+                    const vals = [];
+                    checks.forEach(c => {
+                        vals.push(c.dataset.val);
+                        // 收集fieldName
+                        if (!config[c.dataset.field]) {
+                            config[c.dataset.field] = { vals: [] };
+                        }
+                        config[c.dataset.field].vals.push(c.dataset.val);
+                    });
+                }
+
+                // textarea
+                const textarea = item.querySelector('textarea');
+                if (textarea && textarea.value.trim()) {
+                    const fieldName = textarea.dataset.field;
+                    if (fieldName) config[fieldName] = { text: textarea.value.trim() };
+                }
+            });
+
+            return config;
+        }
+
+        // ============================================================
+        //  配置导入导出
+        // ============================================================
+        function exportConfig() {
+            const config = collectCustomConfig();
+            const blob = new Blob([JSON.stringify({
+                url: $('#urlInput').value.trim(),
+                config,
+                exportedAt: new Date().toISOString(),
+            }, null, 2)], { type: 'application/json' });
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            link.download = `wjx-config-${Date.now()}.json`;
+            link.click();
+            showToast('💾 配置已导出', 'success');
+        }
+
+        function importConfig(input) {
+            const file = input.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                try {
+                    const data = JSON.parse(e.target.result);
+                    if (data.url) $('#urlInput').value = data.url;
+                    if (data.config) {
+                        saveConfigToStorage(data.config);
+                        showToast('📥 配置已导入，请重新分析问卷以应用', 'success');
+                        // 自动触发分析
+                        setTimeout(() => analyzeSurvey(), 500);
+                    }
+                } catch (err) {
+                    showToast('配置文件格式错误', 'error');
+                }
+            };
+            reader.readAsText(file);
+            input.value = '';
+        }
+
+        function saveConfigToStorage(config) {
+            try {
+                const url = $('#urlInput').value.trim();
+                const key = 'wjx_config_' + btoa(url).slice(0, 40);
+                localStorage.setItem(key, JSON.stringify(config));
+            } catch (e) { /* ignore */ }
+        }
+
+        function loadSavedConfig() {
+            try {
+                const url = $('#urlInput').value.trim();
+                const key = 'wjx_config_' + btoa(url).slice(0, 40);
+                const raw = localStorage.getItem(key);
+                return raw ? JSON.parse(raw) : null;
+            } catch (e) { return null; }
+        }
+
+        // ============================================================
+        //  Step 3: 批量提交
+        // ============================================================
+        let stopRequested = false;
+
+        async function startBatch() {
+            if (!surveyData) {
+                showToast('请先分析问卷', 'error');
+                return;
+            }
+            if (isRunning) return;
+
+            const count = parseInt($('#submitCount').value) || 10;
+            const delay = parseInt($('#submitDelay').value) || 800;
+            const mode = $('#answerMode').value;
+
+            if (count < 1 || count > 500) {
+                showToast('份数范围: 1-500', 'error');
+                return;
+            }
+            if (delay < 200) {
+                showToast('间隔最小200ms', 'error');
+                return;
+            }
+
+            // 收集自定义配置
+            const customConfig = (mode === 'custom' || mode === 'mixed')
+                ? collectCustomConfig()
+                : {};
+
+            // 保存配置
+            saveConfigToStorage(customConfig);
+
+            // UI 切换
+            isRunning = true;
+            stopRequested = false;
+            $('#btnStart').disabled = true;
+            $('#btnStop').disabled = false;
+            $('#progressPanel').classList.add('active');
+            $('#progressPanel').scrollIntoView({ behavior: 'smooth', block: 'center' });
+
+            // 重置进度
+            $('#statTotal').textContent = count;
+            $('#statOk').textContent = '0';
+            $('#statFail').textContent = '0';
+            $('#statPct').textContent = '0%';
+            $('#progressBar').style.width = '0%';
+            $('#logStream').innerHTML = `<span class="info">📋 开始批量提交 ${count} 份, 间隔 ${delay}ms...</span>\n`;
+
+            abortController = new AbortController();
+
+            try {
+                const resp = await fetch('/api/batch-submit', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        submitUrl: surveyData.submitUrl,
+                        formDataTemplate: surveyData.hiddenFields || {},
+                        questions: surveyData.questions,
+                        count,
+                        delay,
+                        referer: $('#urlInput').value.trim(),
+                        customConfig: (mode === 'custom' || mode === 'mixed') ? customConfig : null,
+                        answerMode: mode,
+                    }),
+                    signal: abortController.signal,
+                });
+
+                const reader = resp.body.getReader();
+                const decoder = new TextDecoder();
+
+                while (true) {
+                    const { done, value } = await reader.read();
+                    if (done) break;
+
+                    const text = decoder.decode(value, { stream: true });
+                    const lines = text.split('\n').filter(l => l.startsWith('data: '));
+
+                    for (const line of lines) {
+                        try {
+                            const event = JSON.parse(line.slice(6));
+                            handleProgressEvent(event);
+                        } catch (e) { /* skip parse error */ }
+                    }
+                }
+
+            } catch (err) {
+                if (err.name !== 'AbortError') {
+                    console.error(err);
+                    addLog(`<span class="bad">❌ 网络错误: ${err.message}</span>`);
+                    showToast(`网络错误: ${err.message}`, 'error');
+                } else {
+                    addLog(`<span class="info">⏹ 任务已停止</span>`);
+                }
+            } finally {
+                isRunning = false;
+                $('#btnStart').disabled = false;
+                $('#btnStop').disabled = true;
+            }
+        }
+
+        function stopBatch() {
+            stopRequested = true;
+            if (abortController) {
+                abortController.abort();
+            }
+            addLog(`<span class="info">⏹ 正在停止...</span>`);
+            $('#btnStop').disabled = true;
+        }
+
+        function handleProgressEvent(evt) {
+            switch (evt.type) {
+                case 'progress':
+                    $('#statOk').textContent = evt.success;
+                    $('#statFail').textContent = evt.fail;
+                    $('#statPct').textContent = evt.percent + '%';
+                    $('#progressBar').style.width = evt.percent + '%';
+
+                    let emoji = '✅';
+                    if (evt.lastError) emoji = '⚠️';
+                    addLog(`<span class="ts">#${evt.current}/${evt.total}</span>${emoji} 成功:${evt.success} 失败:${evt.fail} ${evt.percent}%`);
+
+                    if (evt.lastError) {
+                        addLog(`  <span class="bad">⚠ ${evt.lastError.slice(0, 80)}</span>`);
+                    }
+                    break;
+
+                case 'complete':
+                    $('#statPct').textContent = '100%';
+                    $('#progressBar').style.width = '100%';
+                    addLog(`<span class="ok">🎉 ===== 任务完成 =====</span>`);
+                    addLog(`<span class="ok">✅ 成功: ${evt.success} 份  ❌ 失败: ${evt.fail} 份</span>`);
+                    showToast(`🎉 完成！成功 ${evt.success} 份，失败 ${evt.fail} 份`, evt.fail > 0 ? 'info' : 'success');
+                    break;
+
+                case 'error':
+                    addLog(`<span class="bad">❌ ${evt.error}</span>`);
+                    showToast(evt.error, 'error');
+                    break;
+            }
+        }
+
+        function addLog(html) {
+            const el = $('#logStream');
+            el.innerHTML += html + '\n';
+            el.scrollTop = el.scrollHeight;
+        }
+
+        // ============================================================
+        //  工具函数
+        // ============================================================
+        function escHtml(s) {
+            if (!s) return '';
+            const d = document.createElement('div');
+            d.textContent = s;
+            return d.innerHTML;
+        }
+
+        // ============================================================
+        //  快捷键: Ctrl+Enter 分析问卷
+        // ============================================================
+        document.addEventListener('keydown', (e) => {
+            if (e.ctrlKey && e.key === 'Enter') {
+                e.preventDefault();
+                if (!isRunning) analyzeSurvey();
+            }
+        });
+
+        $('#urlInput').addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                analyzeSurvey();
+            }
+        });
+
+        // ============================================================
+        //  初始化
+        // ============================================================
+        console.log('%c📋 问卷星自动填写平台 v1.0 %c已就绪', 'font-size:16px;', '');
+        console.log('  粘贴问卷星链接 → 分析 → 自定义答案 → 批量提交');
+        console.log('  支持题型: 单选 / 多选 / 填空 / 下拉 / 评分 / 矩阵 / 排序');
+        console.log('  💡 按 Ctrl+Enter 快速分析问卷');
+    </script>
+</body>
+</html>
