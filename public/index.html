@@ -186,21 +186,61 @@
     <div class="modal-box">
         <button class="close" onclick="closeBuy()">×</button>
         <h3>💰 购买提交次数</h3>
-        <div style="background:#fef9c3;padding:10px;border-radius:8px;margin-bottom:16px;font-size:13px;color:#92400e;">
-            📐 <b>计价规则：每200份 = <span id="buyPricePer">18</span>元，向下取整</b><br>
-            例如：200份=18元 | 399份=18元 | 400份=36元 | 800份=72元
+        <div style="background:#fef9c3;padding:12px;border-radius:8px;margin-bottom:16px;font-size:13px;color:#92400e;line-height:1.8;">
+            📐 <b>计价规则：100次 = 10元，每满100次再送10次</b><br>
+            💡 买100次→实得<b>110次</b>=10元 | 买200次→实得<b>220次</b>=20元 | 买400次→实得<b>440次</b>=40元
         </div>
-        <div class="field"><label>购买份数</label><input type="number" id="buyAmount" value="200" min="200" step="100" oninput="calcBuy()"></div>
-        <div class="field"><label>应付金额</label><input type="text" id="buyPrice" readonly style="font-size:20px;font-weight:700;color:var(--err);"></div>
-        <div class="field"><label>支付备注（付款后填写你的订单号便于确认）</label><input type="text" id="buyNote" placeholder="例如：微信转账单号后6位"></div>
+
+        <!-- 预设选项按钮 -->
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:14px;">
+            <button class="btn" id="preset100" onclick="selectPreset(100)" style="padding:16px;border:2px solid var(--bd);border-radius:10px;background:#fff;cursor:pointer;transition:.2s;text-align:center;">
+                <div style="font-size:22px;font-weight:700;">💎 100次</div>
+                <div style="font-size:13px;color:var(--tx2);">买100送10=得110次</div>
+                <div style="font-size:18px;font-weight:700;color:var(--err);margin-top:4px;">¥10</div>
+            </button>
+            <button class="btn" id="preset200" onclick="selectPreset(200)" style="padding:16px;border:2px solid var(--pri);border-radius:10px;background:#eef2ff;cursor:pointer;transition:.2s;text-align:center;">
+                <div style="font-size:22px;font-weight:700;">⭐ 200次</div>
+                <div style="font-size:13px;color:var(--tx2);">买200送20=得220次</div>
+                <div style="font-size:18px;font-weight:700;color:var(--err);margin-top:4px;">¥20</div>
+                <div style="font-size:10px;color:var(--pri);margin-top:2px;">推荐</div>
+            </button>
+            <button class="btn" id="preset400" onclick="selectPreset(400)" style="padding:16px;border:2px solid var(--bd);border-radius:10px;background:#fff;cursor:pointer;transition:.2s;text-align:center;">
+                <div style="font-size:22px;font-weight:700;">🔥 400次</div>
+                <div style="font-size:13px;color:var(--tx2);">买400送40=得440次</div>
+                <div style="font-size:18px;font-weight:700;color:var(--err);margin-top:4px;">¥40</div>
+            </button>
+        </div>
+
+        <!-- 自定义数量 -->
+        <div style="border-top:1px solid var(--bd);padding-top:12px;">
+            <div class="field"><label>或自定义购买数量</label>
+                <input type="number" id="buyAmount" value="200" min="100" step="100" oninput="calcBuy()" style="width:100%;padding:10px;border:1.5px solid var(--bd);border-radius:8px;font-size:16px;">
+            </div>
+        </div>
+
+        <!-- 计算结果 -->
+        <div style="background:#f8fafc;padding:12px;border-radius:8px;margin:12px 0;">
+            <div style="display:flex;justify-content:space-between;margin-bottom:6px;">
+                <span>购买数量：</span><span id="buyShowAmount">200次</span>
+            </div>
+            <div style="display:flex;justify-content:space-between;margin-bottom:6px;">
+                <span>🎁 赠送：</span><span style="color:var(--ok);font-weight:700;" id="buyShowBonus">+20次</span>
+            </div>
+            <div style="display:flex;justify-content:space-between;font-size:18px;font-weight:700;border-top:1px solid var(--bd);padding-top:8px;">
+                <span>实得次数：</span><span style="color:var(--pri);" id="buyShowTotal">220次</span>
+            </div>
+            <div style="display:flex;justify-content:space-between;font-size:20px;font-weight:700;margin-top:4px;">
+                <span>应付金额：</span><span style="color:var(--err);" id="buyPrice">¥20.00</span>
+            </div>
+        </div>
+
+        <div class="field"><label>支付备注（选填）</label><input type="text" id="buyNote" placeholder="如微信转账单号后几位"></div>
+
         <div id="buyQrcode" class="hidden" style="text-align:center;margin:12px 0;">
-            <img id="buyQrImg" style="max-width:220px;border-radius:8px;" alt="收款码">
+            <img id="buyQrImg" style="max-width:200px;border-radius:8px;" alt="收款码">
             <p style="font-size:12px;color:var(--tx2);margin-top:6px;" id="buyQrText"></p>
         </div>
-        <button class="btn btn-pri" style="width:100%;padding:12px;" onclick="doBuy()">📝 创建订单（提交后等待管理员确认）</button>
-        <div style="font-size:12px;color:var(--tx2);margin-top:8px;text-align:center;">
-            付款后请在「我的订单」中查看审核状态
-        </div>
+        <button class="btn btn-pri" style="width:100%;padding:14px;font-size:16px;" onclick="doBuy()">📝 生成订单</button>
     </div>
 </div>
 
@@ -412,14 +452,10 @@ async function loadPublicSettings() {
         publicSettings = await r.json();
         $('#hdTitle').textContent = publicSettings.siteName || '问卷星自动填写平台';
         $('#stFree').textContent = publicSettings.dailyFree || 3;
-        $('#buyPricePer').textContent = publicSettings.priceYuan || '18.00';
-        if (publicSettings.paymentQrcode) {
-            $('#buyQrcode').classList.remove('hidden');
-            $('#buyQrImg').src = publicSettings.paymentQrcode;
-            $('#buyQrText').textContent = publicSettings.paymentInstructions || '';
-        }
     } catch(e) {}
 }
+
+// Remove old buyPricePer reference - price is now hardcoded in calcBuy()
 
 // ==================== Analyze ====================
 async function doAnalyze() {
@@ -597,31 +633,43 @@ function stopBatch() {
 function addLog(h) { const e=$('#logBox'); e.innerHTML+=h+'\n'; e.scrollTop=e.scrollHeight; }
 
 // ==================== Buy ====================
-function openBuy() { calcBuy(); $('#buyModal').classList.add('show'); }
+function openBuy() { selectPreset(200); $('#buyModal').classList.add('show'); }
 function closeBuy() { $('#buyModal').classList.remove('show'); }
+
+function selectPreset(n) {
+    $('#buyAmount').value = n;
+    // 更新按钮样式
+    $$('#buyModal .btn[id^="preset"]').forEach(b => { b.style.borderColor='var(--bd)'; b.style.background='#fff'; });
+    const active = $('#preset'+n); if (active) { active.style.borderColor='var(--pri)'; active.style.background='#eef2ff'; }
+    calcBuy();
+}
+
 function calcBuy() {
-    const a = parseInt($('#buyAmount').value)||200;
-    const py = parseFloat(publicSettings?.priceYuan||'18');
-    const units = Math.floor(a/200);
-    const total = units<1?py:(units*py);
-    $('#buyPrice').value = '¥ '+total.toFixed(2);
+    const a = parseInt($('#buyAmount').value) || 100;
+    const units100 = Math.ceil(a / 100);
+    const price = units100 * 10;
+    const bonus = units100 * 10;
+    const total = a + bonus;
+    $('#buyShowAmount').textContent = a + '次';
+    $('#buyShowBonus').textContent = '+' + bonus + '次';
+    $('#buyShowTotal').textContent = total + '次';
+    $('#buyPrice').textContent = '¥' + price.toFixed(2);
 }
 
 async function doBuy() {
     if (!user) { toast('请先登录','e'); return; }
-    const a = parseInt($('#buyAmount').value)||200;
+    const a = parseInt($('#buyAmount').value)||100;
     const n = $('#buyNote').value;
     try {
         const r = await fetch('/api/orders/create',{method:'POST',headers:authHeaders(),body:JSON.stringify({amount:a,paymentNote:n})});
         const d = await r.json();
         if (!d.success) { toast(d.error,'e'); return; }
-        // 更新支付信息
         if (d.paymentInfo?.qrcode) {
             $('#buyQrcode').classList.remove('hidden');
             $('#buyQrImg').src = d.paymentInfo.qrcode;
             $('#buyQrText').textContent = d.paymentInfo.instructions;
         }
-        toast(`订单#${d.order.id}已创建，${d.pricing.yuan}元，请付款后等待确认`,'s');
+        toast(`订单#${d.order.id}已生成！${d.pricing.yuan}元，实得${d.pricing.totalReceive}次（含赠送${d.pricing.bonus}次）`,'s');
         closeBuy();
     } catch(e) { toast('网络错误','e'); }
 }

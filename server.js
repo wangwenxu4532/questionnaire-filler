@@ -181,21 +181,18 @@ function grantDailyFree(userId) {
 // ==================== 订单 API ====================
 
 app.get('/api/pricing', (req, res) => {
-    const pricePer200 = parseInt(settingGet('price_per_200', '1800'));
     const dailyFree = settingGet('daily_free_quota', '3');
     res.json({
         dailyFree: parseInt(dailyFree),
-        priceYuan: (pricePer200 / 100).toFixed(2),
-        minBuy: parseInt(settingGet('min_buy_amount', '200')),
-        examples: [
-            { amount: 200, yuan: '18.00' },
-            { amount: 400, yuan: '36.00' },
-            { amount: 600, yuan: '54.00' },
-            { amount: 1000, yuan: '90.00' },
-            { amount: 199, yuan: '18.00', note: '不足200按200算' },
-            { amount: 399, yuan: '18.00', note: '向下取整，399份=1×200=18元' },
+        unitPrice: '10元/100次（买100送10，实得110次）',
+        minBuy: parseInt(settingGet('min_buy_amount', '100')),
+        presets: [
+            { amount: 100, price: '10.00', bonus: 10, receive: 110, label: '基础包' },
+            { amount: 200, price: '20.00', bonus: 20, receive: 220, label: '推荐包' },
+            { amount: 400, price: '40.00', bonus: 40, receive: 440, label: '超值包' },
         ],
-        formula: '每200份18元，向下取整。例：350份 → floor(350/200)=1 → 18元',
+        formula: '每100次=10元，每100次再送10次。例：买200次得220次=20元',
+        bonusRule: '每满100次送10次',
     });
 });
 
@@ -204,8 +201,9 @@ app.post('/api/orders/create', authMiddleware, (req, res) => {
         const { amount, paymentNote } = req.body;
         if (!amount || amount <= 0) return res.status(400).json({ error: '请输入有效的购买份数' });
         const pricing = calculatePrice(amount);
+        // 订单记录原始购买量，赠送在审核时加上
         const order = orderCreate(req.user.id, pricing.amount, pricing.priceCents, paymentNote || '');
-        console.log(`[订单] 用户${req.user.username} 创建 #${order.id}: ${pricing.amount}份 ${pricing.yuan}元`);
+        console.log(`[订单] 用户${req.user.username} 创建 #${order.id}: ${pricing.amount}份 ${pricing.yuan}元 (送${pricing.bonus}次，实得${pricing.totalReceive})`);
         res.json({
             success: true, order,
             pricing,
@@ -259,11 +257,15 @@ app.post('/api/admin/orders/approve', authMiddleware, adminMiddleware, (req, res
         if (order.status !== 'pending') return res.status(400).json({ error: '状态不是待支付' });
 
         orderUpdateStatus(orderId, 'paid', req.user.id, adminNote || '');
-        userAddCredits(order.user_id, order.amount);
-        creditLogAdd(order.user_id, order.amount, 'purchase', '订单#' + orderId + ' 已支付', orderId);
 
-        console.log(`[管理员] 订单#${orderId} 审核通过，用户获得${order.amount}次`);
-        res.json({ success: true, message: '已确认支付' });
+        // 计算赠送: 每100次送10次
+        const bonus = Math.floor(order.amount / 100) * 10;
+        const totalCredits = order.amount + bonus;
+        userAddCredits(order.user_id, totalCredits);
+        creditLogAdd(order.user_id, totalCredits, 'purchase', `订单#${orderId} 已支付 (购买${order.amount}+赠送${bonus}=${totalCredits}次)`, orderId);
+
+        console.log(`[管理员] 订单#${orderId} 审核通过，用户获得${totalCredits}次（含赠送${bonus}）`);
+        res.json({ success: true, message: `已确认，用户获得${totalCredits}次（含赠送${bonus}次）` });
     } catch (err) { res.status(500).json({ error: '操作失败' }); }
 });
 
@@ -647,7 +649,6 @@ function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
 // ==================== 启动 ====================
 app.listen(PORT, () => {
     const fq = settingGet('daily_free_quota', '3');
-    const py = (parseInt(settingGet('price_per_200', '1800')) / 100).toFixed(2);
     console.log(`
 ╔═══════════════════════════════════════════════╗
 ║     📋 问卷星自动填写平台 v2.0                 ║
@@ -655,7 +656,7 @@ app.listen(PORT, () => {
 ║  🌐 本地: http://localhost:${PORT}                ║
 ║  👤 管理员: admin / admin123                  ║
 ║  🆓 每日免费: ${fq} 次                         ║
-║  💰 价格: ${py}元 / 200份                      ║
+║  💰 100次=10元 (再送10次→实得110次)           ║
 ║  🌐 随机IP: 已启用 (真实中国IP段)             ║
 ║  💾 数据: JSON 文件存储 (data/ 目录)          ║
 ╚═══════════════════════════════════════════════╝

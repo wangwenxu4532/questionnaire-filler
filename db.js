@@ -182,8 +182,7 @@ function announceCreate(title, content) {
 const DEFAULT_SETTINGS = {
     site_name: '问卷星自动填写平台',
     daily_free_quota: '3',
-    price_per_200: '1800',
-    min_buy_amount: '200',
+    min_buy_amount: '100',
     payment_method: '微信扫码支付',
     payment_qrcode: '',
     payment_instructions: '请扫码付款后，在订单备注中填写订单号，等待管理员确认。',
@@ -231,13 +230,25 @@ if (!userGet('admin')) {
 }
 
 // ==================== 价格计算 ====================
+// 定价: 200次 = 20元 (0.1元/次)
+// 赠送: 每买100次送10次 → 100次实际得110次，200次实际得220次
 function calculatePrice(amount) {
-    const pricePer200 = parseInt(settingGet('price_per_200', '1800'));
-    const minBuy = parseInt(settingGet('min_buy_amount', '200'));
+    const minBuy = parseInt(settingGet('min_buy_amount', '100'));
     const actualAmount = Math.max(amount, minBuy);
-    const units = Math.floor(actualAmount / 200);
-    if (units < 1) return { amount: actualAmount, priceCents: pricePer200, yuan: (pricePer200 / 100).toFixed(2), units: 1 };
-    return { amount: actualAmount, priceCents: units * pricePer200, yuan: ((units * pricePer200) / 100).toFixed(2), units };
+    // 每100次=10元
+    const units100 = Math.ceil(actualAmount / 100);
+    const priceCents = units100 * 1000; // 10元 = 1000分
+    // 赠送: 每100次送10次
+    const bonus = units100 * 10;
+    const totalReceive = actualAmount + bonus;
+    return {
+        amount: actualAmount,
+        priceCents,
+        yuan: (priceCents / 100).toFixed(2),
+        units100,
+        bonus,
+        totalReceive,
+    };
 }
 
 // ==================== 导出 ====================
