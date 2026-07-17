@@ -342,47 +342,46 @@ app.post('/api/admin/announce', authMiddleware, adminMiddleware, (req, res) => {
 // ==================== 问卷代理 API（含随机IP） ====================
 
 // 分析问卷
+// 分析问卷（需要登录）- 返回用于页面提交的配置
 app.post('/api/analyze', authMiddleware, async (req, res) => {
     try {
         const { url } = req.body;
         if (!url) return res.status(400).json({ error: '请提供问卷链接' });
-
-        const ip = getSessionIP(true);
-        const ua = randomUA();
-        console.log(`[分析] ${req.user.username} → IP:${ip}`);
         grantDailyFree(req.user.id);
+        console.log(`[分析] ${req.user.username} 请求分析: ${url}`);
 
-        const response = await axios.get(url, {
-            headers: {
-                'User-Agent': ua,
-                'Accept': 'text/html,application/xhtml+xml,*/*;q=0.8',
-                'Accept-Language': 'zh-CN,zh;q=0.9',
-                'X-Forwarded-For': ip,
-                'X-Real-IP': ip,
-                'Referer': 'https://www.wjx.cn/',
-            },
-            timeout: 15000,
-            maxRedirects: 5,
+        // 不再从服务器端请求问卷星——由浏览器端在用户自己的网络环境下请求
+        res.json({
+            success: true,
+            _note: '请在前端打开问卷星页面分析题目。由于问卷星限制海外IP，分析功能需要浏览器端完成。',
         });
-
-        const html = response.data;
-        const doc = new JSDOM(html).window.document;
-        const title = doc.querySelector('title')?.textContent || '未知问卷';
-        const questions = parseQuestions(doc);
-        const submitUrl = extractSubmitUrl(doc, url);
-        const hiddenFields = extractHiddenFields(doc);
-
-        console.log(`[分析] 共${questions.length}题`);
-
-        res.json({ success: true, title, questionCount: questions.length, questions, submitUrl, hiddenFields });
     } catch (err) {
-        console.error('[分析失败]', err.message);
-        if (err.response && typeof err.response.data === 'string' && err.response.data.includes('div_question')) {
-            const doc = new JSDOM(err.response.data).window.document;
-            const questions = parseQuestions(doc);
-            return res.json({ success: true, title: doc.querySelector('title')?.textContent || '', questionCount: questions.length, questions, submitUrl: extractSubmitUrl(doc, req.body.url), hiddenFields: extractHiddenFields(doc) });
-        }
         res.status(500).json({ success: false, error: err.message });
+    }
+});
+
+// POST /api/consume-credits —— 前端提交成功后回调扣除次数
+app.post('/api/consume-credits', authMiddleware, (req, res) => {
+    try {
+        const { count = 1 } = req.body;
+        grantDailyFree(req.user.id);
+        const user = userGetById(req.user.id);
+        const totalCount = Math.min(count || 1, 500);
+
+        if (user.credits < totalCount) {
+            return res.status(402).json({ error: '次数不足', credits: user.credits, required: totalCount });
+        }
+
+        if (!userConsumeCredit(req.user.id, totalCount)) {
+            return res.status(402).json({ error: '次数扣减失败' });
+        }
+        creditLogAdd(req.user.id, -totalCount, 'consume', `前端直接提交${totalCount}份`);
+
+        const updated = userGetById(req.user.id);
+        console.log(`[扣减] ${req.user.username} 消费${totalCount}次, 余额:${updated.credits}`);
+        res.json({ success: true, credits: updated.credits, consumed: totalCount });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
     }
 });
 
