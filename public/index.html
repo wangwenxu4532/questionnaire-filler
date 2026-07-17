@@ -470,7 +470,15 @@ async function doBuy() {
         const r = await fetch('/api/orders/create', { method: 'POST', headers: authHeaders(), body: JSON.stringify({ amount: a, paymentNote: n }) });
         const d = await r.json();
         if (!d.success) { toast(d.error, 'e'); return; }
-        toast(`订单#${d.order.id}已生成！${d.pricing.yuan}元，实得${d.pricing.totalReceive}次（含赠送${d.pricing.bonus}次）`, 's');
+        // 直接自动确认——改为立即到账
+        const r2 = await fetch('/api/orders/self-confirm', { method: 'POST', headers: authHeaders(), body: JSON.stringify({ orderId: d.order.id }) });
+        const d2 = await r2.json();
+        if (d2.success) {
+            user.credits = d2.credits; updateUI();
+            toast(`✅ 购买成功！获得 ${d2.message.split('获得 ')[1] || d2.message}`, 's');
+        } else {
+            toast(`订单已生成，但自动确认失败：${d2.error}`, 'e');
+        }
         closeBuy();
     } catch (e) { toast('网络错误', 'e'); }
 }

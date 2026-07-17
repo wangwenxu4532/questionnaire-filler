@@ -234,7 +234,7 @@ app.post('/api/orders/self-confirm', authMiddleware, (req, res) => {
 
         // 订单创建后至少等10秒才能自助确认
         const elapsed = Date.now() - new Date(order.created_at).getTime();
-        if (elapsed < 10000) return res.status(400).json({ error: '订单刚创建，请付款后再确认' });
+        if (elapsed < 2000) return res.status(400).json({ error: '订单刚创建，请稍后确认' });
 
         orderUpdateStatus(orderId, 'paid', null, '用户自助确认');
         const bonus = Math.floor(order.amount / 100) * 10;
