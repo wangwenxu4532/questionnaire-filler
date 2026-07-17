@@ -223,6 +223,32 @@ app.get('/api/orders/my', authMiddleware, (req, res) => {
     res.json({ success: true, orders: orderGetByUser(req.user.id) });
 });
 
+// 用户自助确认付款（解放双手，无需管理员手动审核）
+app.post('/api/orders/self-confirm', authMiddleware, (req, res) => {
+    try {
+        const { orderId } = req.body;
+        const order = orderGetById(orderId);
+        if (!order) return res.status(404).json({ error: '订单不存在' });
+        if (order.user_id !== req.user.id) return res.status(403).json({ error: '只能确认自己的订单' });
+        if (order.status !== 'pending') return res.status(400).json({ error: '该订单已处理' });
+
+        // 订单创建后至少等10秒才能自助确认
+        const elapsed = Date.now() - new Date(order.created_at).getTime();
+        if (elapsed < 10000) return res.status(400).json({ error: '订单刚创建，请付款后再确认' });
+
+        orderUpdateStatus(orderId, 'paid', null, '用户自助确认');
+        const bonus = Math.floor(order.amount / 100) * 10;
+        const totalCredits = order.amount + bonus;
+        userAddCredits(order.user_id, totalCredits);
+        creditLogAdd(order.user_id, totalCredits, 'purchase',
+            `订单#${orderId} 自助确认 (${order.amount}+赠送${bonus}=${totalCredits}次)`, orderId);
+
+        const updatedUser = userGetById(req.user.id);
+        console.log(`[自助确认] ${req.user.username} 订单#${orderId}，得${totalCredits}次`);
+        res.json({ success: true, message: `确认成功！获得 ${totalCredits} 次（含赠送 ${bonus} 次）`, credits: updatedUser.credits });
+    } catch (err) { res.status(500).json({ error: '操作失败' }); }
+});
+
 app.get('/api/credits/log', authMiddleware, (req, res) => {
     res.json({ success: true, logs: creditLogGetByUser(req.user.id) });
 });
