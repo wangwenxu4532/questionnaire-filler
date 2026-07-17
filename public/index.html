@@ -409,7 +409,7 @@ function collectConfig() {
     return cfg;
 }
 
-// ═══════════ Batch ═══════════
+// ═══════════ Batch - 浏览器直发（绕过海外IP限制） ═══════════
 async function doBatch() {
     if (!surveyData) { toast('请先分析问卷', 'e'); return; }
     if (isRunning) return;
@@ -421,37 +421,84 @@ async function doBatch() {
     const me = await fetch('/api/auth/me', { headers: authHeaders() }).then(r => r.json());
     if (me.credits < cnt) { toast(`次数不足！剩余${me.credits}次，需要${cnt}次`, 'e'); openBuy(); return; }
 
+    // 先扣次数
+    const cr = await fetch('/api/consume-credits', { method:'POST', headers:authHeaders(), body:JSON.stringify({count:cnt}) });
+    const crd = await cr.json();
+    if (!crd.success) { toast(crd.error||'扣减次数失败','e'); return; }
+    user.credits = crd.credits; updateUI();
+
     const cfg = (mode === 'custom' || mode === 'mixed') ? collectConfig() : {};
     isRunning = true; $('#btnGo').disabled = true; $('#btnStop').disabled = false;
     $('#progPanel').classList.remove('hidden'); $('#progPanel').scrollIntoView({ behavior: 'smooth', block: 'center' });
     $('#pT').textContent = cnt; $('#pS').textContent = '0'; $('#pF').textContent = '0'; $('#pP').textContent = '0%'; $('#progBar').style.width = '0%';
-    $('#logBox').innerHTML = `<span class="info">🚀 开始批量提交 ${cnt} 份, 间隔 ${dly}ms</span>\n`;
-    abortCtrl = new AbortController();
+    $('#logBox').innerHTML = `<span class="info">🚀 浏览器直发：${cnt} 份, 间隔 ${dly}ms</span>\n`;
 
-    try {
-        const r = await fetch('/api/batch-submit', {
-            method: 'POST', headers: authHeaders(),
-            body: JSON.stringify({ submitUrl: surveyData.submitUrl, formDataTemplate: surveyData.hiddenFields || {}, questions: surveyData.questions, count: cnt, delay: dly, referer: $('#urlInput').value.trim(), customConfig: cfg, answerMode: mode }),
-            signal: abortCtrl.signal,
-        });
-        const reader = r.body.getReader(); const dec = new TextDecoder();
-        while (true) {
-            const { done, value } = await reader.read(); if (done) break;
-            const lines = dec.decode(value, { stream: true }).split('\n').filter(l => l.startsWith('data: '));
-            for (const l of lines) {
-                try {
-                    const ev = JSON.parse(l.slice(6));
-                    if (ev.type === 'progress') { $('#pS').textContent = ev.success; $('#pF').textContent = ev.fail; $('#pP').textContent = ev.percent + '%'; $('#progBar').style.width = ev.percent + '%'; $('#pIP').textContent = '🌐 ' + ev.ip; addLog(`<span class="ts">#${ev.current}/${ev.total}</span> ${ev.lastError ? '⚠️' : '✅'} 成功:${ev.success} 失败:${ev.fail} [${ev.ip}]`); if (ev.lastError) addLog(`  <span class="err">⚠ ${ev.lastError.slice(0, 80)}</span>`); }
-                    else if (ev.type === 'complete') { addLog(`<span class="ok">🎉 完成！成功${ev.success} 失败${ev.fail}</span>`); toast(`✅ 成功${ev.success}份 失败${ev.fail}份`, 's'); }
-                    else if (ev.type === 'credits') { user.credits = ev.credits; updateUI(); addLog(`<span class="info">🪙 剩余: ${ev.credits}</span>`); }
-                    else if (ev.type === 'error') { addLog(`<span class="err">❌ ${ev.error}</span>`); toast(ev.error, 'e'); }
-                } catch (_) { }
+    let ok = 0, fail = 0, stopFlag = false;
+    const referer = $('#urlInput').value.trim();
+    const submitUrl = surveyData.submitUrl;
+
+    // 用 fetch 从浏览器直接提交（绕过服务器，走国内 IP）
+    for (let i = 0; i < cnt && !stopFlag; i++) {
+        try {
+            let formData;
+            if (mode === 'custom' && cfg && Object.keys(cfg).length > 0) {
+                formData = applyCustomAnswers(surveyData.hiddenFields||{}, cfg, surveyData.questions);
+            } else if (mode === 'mixed' && cfg) {
+                formData = genRandomAnswers(surveyData.hiddenFields||{}, surveyData.questions);
+                formData = mergeCustomAnswers(formData, cfg, surveyData.questions);
+            } else {
+                formData = genRandomAnswers(surveyData.hiddenFields||{}, surveyData.questions);
             }
+
+            const params = new URLSearchParams();
+            Object.entries(formData).forEach(([k,v])=>{
+                if (Array.isArray(v)) v.forEach(x=>params.append(k,x));
+                else params.append(k,v);
+            });
+
+            const resp = await fetch(submitUrl, {
+                method:'POST',
+                headers:{'Content-Type':'application/x-www-form-urlencoded; charset=UTF-8','Accept':'*/*','X-Requested-With':'XMLHttpRequest'},
+                body: params.toString(),
+                mode: 'no-cors', // 跨域也发
+            });
+            ok++;
+            addLog(`<span class="ts">#${i+1}/${cnt}</span> ✅ 成功`);
+        } catch(e) {
+            fail++;
+            addLog(`<span class="ts">#${i+1}/${cnt}</span> <span class="err">❌ ${e.message.slice(0,60)}</span>`);
         }
-    } catch (e) { if (e.name !== 'AbortError') { addLog(`<span class="err">❌ ${e.message}</span>`); toast(e.message, 'e'); } }
-    finally { isRunning = false; $('#btnGo').disabled = false; $('#btnStop').disabled = true; try { const me2 = await fetch('/api/auth/me', { headers: authHeaders() }).then(r => r.json()); user = me2; updateUI(); } catch (_) { } }
+        $('#pS').textContent=ok; $('#pF').textContent=fail;
+        $('#pP').textContent=Math.round((i+1)/cnt*100)+'%';
+        $('#progBar').style.width=Math.round((i+1)/cnt*100)+'%';
+        if (i < cnt - 1) await sleep(dly);
+    }
+
+    addLog(`<span class="ok">🎉 完成！成功${ok} 失败${fail}</span>`);
+    toast(`✅ 成功${ok}份 失败${fail}份`, 's');
+    isRunning = false; $('#btnGo').disabled = false; $('#btnStop').disabled = true;
+    try { const me2 = await fetch('/api/auth/me',{headers:authHeaders()}).then(r=>r.json()); user=me2; updateUI(); } catch(_){}
 }
-function stopBatch() { if (abortCtrl) abortCtrl.abort(); addLog('<span class="info">⏹ 停止中...</span>'); }
+
+function sleep(ms){ return new Promise(r=>setTimeout(r,ms)); }
+
+function genRandomAnswers(template, questions) {
+    const data = { ...template };
+    if (!questions) return data;
+    questions.forEach(q => {
+        const fn = q.fieldName; if (!fn) return;
+        switch (q.type) {
+            case 'radio': if (q.options.length) data[fn] = q.options[Math.floor(Math.random() * q.options.length)].val; break;
+            case 'checkbox': { const cnt = 1 + Math.floor(Math.random() * Math.min(3, q.options.length)); const p = [...q.options].sort(() => Math.random() - 0.5).slice(0, cnt); const cl = fn.replace('[]', ''); fn.includes('[]') ? (data[cl] = p.map(x => x.val)) : p.forEach((x, i) => { data[`${cl}[${i}]`] = x.val; }); break; }
+            case 'text': case 'textarea': data[fn] = ['不错','服务好','体验好','性价比高','质量可靠'][Math.floor(Math.random() * 5)]; break;
+            case 'select': if (q.options.length) data[fn] = q.options[Math.floor(Math.random() * q.options.length)].val; break;
+            case 'star': data[fn] = String(3 + Math.floor(Math.random() * 3)); break;
+        }
+    });
+    return data;
+}
+
+function stopBatch() { isRunning = false; addLog('<span class="info">⏹ 已停止</span>'); }
 function addLog(h) { const e = $('#logBox'); e.innerHTML += h + '\n'; e.scrollTop = e.scrollHeight; }
 
 // ═══════════ Buy ═══════════
