@@ -5,36 +5,15 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>📋 问卷星自动填写平台</title>
     <style>
-        :root {
-            --pri: #4f46e5; --pri-d: #4338ca; --pri-l: #eef2ff;
-            --ok: #10b981; --err: #ef4444; --warn: #f59e0b;
-            --bg: #f1f5f9; --card: #fff; --txt: #1e293b;
-            --tx2: #64748b; --bd: #e2e8f0; --rd: 10px;
-            --sh: 0 1px 3px rgba(0,0,0,.06);
-        }
+        :root { --pri: #4f46e5; --pri-d: #4338ca; --pri-l: #eef2ff; --ok: #10b981; --err: #ef4444; --warn: #f59e0b; --bg: #f1f5f9; --card: #fff; --txt: #1e293b; --tx2: #64748b; --bd: #e2e8f0; --rd: 10px; --sh: 0 1px 3px rgba(0,0,0,.06); }
         * { margin: 0; padding: 0; box-sizing: border-box; }
-        body {
-            font-family: -apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei","Noto Sans SC",sans-serif;
-            background: var(--bg); color: var(--txt); min-height: 100vh; line-height: 1.6;
-        }
-
-        /* Header */
-        .header {
-            background: var(--card); border-bottom: 1px solid var(--bd);
-            padding: 0 24px; height: 60px; display: flex; align-items: center;
-            justify-content: space-between; box-shadow: var(--sh); position: sticky; top: 0; z-index: 900;
-        }
+        body { font-family: -apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei","Noto Sans SC",sans-serif; background: var(--bg); color: var(--txt); min-height: 100vh; line-height: 1.6; }
+        .header { background: var(--card); border-bottom: 1px solid var(--bd); padding: 0 24px; height: 60px; display: flex; align-items: center; justify-content: space-between; box-shadow: var(--sh); position: sticky; top: 0; z-index: 900; }
         .header .logo { font-size: 18px; font-weight: 700; color: var(--pri); }
         .header .user-area { display: flex; align-items: center; gap: 12px; }
-        .header .user-area .badge {
-            background: var(--pri-l); color: var(--pri); padding: 4px 12px;
-            border-radius: 20px; font-size: 12px; font-weight: 600;
-        }
-        .header .user-area .badge.admin { background: #fef3c7; color: #92400e; }
-        .btn {
-            padding: 8px 16px; border: none; border-radius: 8px; font-size: 13px; font-weight: 600;
-            cursor: pointer; transition: all .15s; font-family: inherit; white-space: nowrap;
-        }
+        .header .badge { background: var(--pri-l); color: var(--pri); padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 600; }
+        .header .badge.admin { background: #fef3c7; color: #92400e; }
+        .btn { padding: 8px 16px; border: none; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; transition: all .15s; font-family: inherit; white-space: nowrap; }
         .btn-sm { padding: 5px 12px; font-size: 12px; }
         .btn-pri { background: var(--pri); color: #fff; }
         .btn-pri:hover { background: var(--pri-d); }
@@ -42,110 +21,78 @@
         .btn-err { background: var(--err); color: #fff; }
         .btn-ghost { background: #fff; color: var(--pri); border: 1.5px solid var(--pri); }
         .btn:disabled { opacity: .5; pointer-events: none; }
-
-        /* Main */
         .main { max-width: 1100px; margin: 0 auto; padding: 24px 20px 60px; }
-
-        /* Card */
         .card { background: var(--card); border-radius: var(--rd); box-shadow: var(--sh); border: 1px solid var(--bd); padding: 24px; margin-bottom: 20px; }
         .card-h { font-size: 16px; font-weight: 700; margin-bottom: 16px; }
-
-        /* Auth modal */
-        .auth-tabs { display:flex; margin-bottom:20px; background:#f1f5f9; border-radius:10px; padding:4px; }
-        .auth-tab { flex:1; padding:10px; border:none; border-radius:8px; cursor:pointer; font-size:14px; font-weight:600; transition:.2s; background:transparent; color:var(--tx2); }
-        .auth-tab.active { background:#fff; color:var(--pri); box-shadow:0 1px 3px rgba(0,0,0,.1); }
-        .auth-field { display:flex; align-items:center; margin-bottom:12px; border:1.5px solid var(--bd); border-radius:10px; overflow:hidden; transition:.2s; }
-        .auth-field:focus-within { border-color:var(--pri); }
-        .auth-field-icon { padding:0 14px; font-size:16px; background:#f8fafc; align-self:stretch; display:flex; align-items:center; }
-        .auth-field input { flex:1; border:none; padding:12px; font-size:14px; outline:none; background:transparent; }
-        .auth-box .field { margin-bottom: 14px; }
-        .auth-box .field label { display: block; font-size: 13px; font-weight: 600; color: var(--tx2); margin-bottom: 5px; }
-        .auth-box .field input {
-            width: 100%; padding: 11px 14px; border: 1.5px solid var(--bd); border-radius: 8px; font-size: 14px; outline: none; transition: .2s;
-        }
-        .auth-box .field input:focus { border-color: var(--pri); }
-
-        /* URL input */
         .url-row { display: flex; gap: 12px; }
-        .url-row input {
-            flex: 1; padding: 12px 16px; border: 2px solid var(--bd); border-radius: var(--rd);
-            font-size: 15px; outline: none; transition: .25s;
-        }
+        .url-row input { flex: 1; padding: 12px 16px; border: 2px solid var(--bd); border-radius: var(--rd); font-size: 15px; outline: none; transition: .25s; }
         .url-row input:focus { border-color: var(--pri); }
-
-        /* Stats bar */
-        .stats-row {
-            display: grid; grid-template-columns: repeat(4,1fr); gap: 12px; margin-bottom: 20px;
-        }
-        @media (max-width:600px) { .stats-row { grid-template-columns: repeat(2,1fr); } }
-        .stat-card {
-            background: var(--card); border-radius: var(--rd); box-shadow: var(--sh);
-            border: 1px solid var(--bd); padding: 16px; text-align: center;
-        }
+        .stats-row { display: grid; grid-template-columns: repeat(4,1fr); gap: 12px; margin-bottom: 20px; }
+        @media(max-width:600px) { .stats-row { grid-template-columns: repeat(2,1fr); } }
+        .stat-card { background: var(--card); border-radius: var(--rd); box-shadow: var(--sh); border: 1px solid var(--bd); padding: 16px; text-align: center; }
         .stat-card .val { font-size: 28px; font-weight: 700; color: var(--pri); }
         .stat-card .lbl { font-size: 12px; color: var(--tx2); margin-top: 2px; }
-
-        /* Survey info */
         .survey-bar { display: flex; align-items: center; gap: 12px; padding: 14px 18px; background: var(--pri-l); border-radius: var(--rd); margin-bottom: 16px; }
         .survey-bar .s-name { font-weight: 600; flex: 1; }
         .survey-bar .s-num { font-size: 13px; color: var(--tx2); }
-
-        /* Question item */
         .q-list { display: flex; flex-direction: column; gap: 10px; }
         .q-item { border: 1px solid var(--bd); border-radius: 8px; padding: 12px 14px; background: #fafbfc; }
         .q-item .q-top { display: flex; align-items: flex-start; gap: 8px; margin-bottom: 8px; }
         .q-item .q-num { background: var(--pri); color: #fff; min-width: 22px; height: 22px; border-radius: 50%; font-size: 11px; font-weight: 700; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
         .q-tag { display: inline-block; padding: 1px 7px; border-radius: 4px; font-size: 10px; font-weight: 600; flex-shrink: 0; }
-        .q-tag.rd { background: #dbeafe; color: #2563eb; }  .q-tag.ch { background: #fef3c7; color: #d97706; }
-        .q-tag.tx { background: #fce7f3; color: #db2777; }   .q-tag.st { background: #fef9c3; color: #ca8a04; }
+        .q-tag.rd { background: #dbeafe; color: #2563eb; } .q-tag.ch { background: #fef3c7; color: #d97706; } .q-tag.tx { background: #fce7f3; color: #db2777; } .q-tag.st { background: #fef9c3; color: #ca8a04; }
         .q-title { flex: 1; font-size: 13px; }
         .q-ctrl { margin-left: 30px; }
-        .q-ctrl select, .q-ctrl textarea { width: 100%; padding: 7px 10px; border: 1px solid var(--bd); border-radius: 6px; font-size: 13px; font-family: inherit; }
+        .q-ctrl select,.q-ctrl textarea { width: 100%; padding: 7px 10px; border: 1px solid var(--bd); border-radius: 6px; font-size: 13px; font-family: inherit; }
         .q-ctrl textarea { resize: vertical; min-height: 40px; }
-
-        /* Config */
         .config-row { display: grid; grid-template-columns: repeat(auto-fit,minmax(160px,1fr)); gap: 14px; }
         .config-row label { display: block; font-size: 12px; font-weight: 600; color: var(--tx2); margin-bottom: 4px; }
-        .config-row input, .config-row select { width: 100%; padding: 9px 12px; border: 1.5px solid var(--bd); border-radius: 8px; font-size: 14px; outline: none; }
-
-        /* Progress */
+        .config-row input,.config-row select { width: 100%; padding: 9px 12px; border: 1.5px solid var(--bd); border-radius: 8px; font-size: 14px; outline: none; }
         .prog { background: var(--card); border-radius: var(--rd); box-shadow: 0 4px 20px rgba(0,0,0,.12); border: 1px solid var(--bd); padding: 24px; margin-bottom: 20px; }
         .prog-bar { height: 10px; background: #e2e8f0; border-radius: 5px; margin: 14px 0; overflow: hidden; }
         .prog-bar div { height: 100%; background: linear-gradient(90deg,var(--pri),#7c3aed); border-radius: 5px; transition: .3s; width: 0%; }
-        .prog-s { display: flex; gap: 20px; justify-content: center; font-size: 14px; text-align: center; }
+        .prog-s { display: flex; gap: 20px; justify-content: center; font-size: 14px; text-align: center; flex-wrap: wrap; }
         .prog-s .pv { font-size: 26px; font-weight: 700; }
-        .prog-s .pv.g { color: var(--ok); }  .prog-s .pv.r { color: var(--err); }
+        .prog-s .pv.g { color: var(--ok); } .prog-s .pv.r { color: var(--err); }
         .log-box { background: #1e293b; color: #cbd5e1; border-radius: 8px; padding: 12px; font-family: "Cascadia Code","Fira Code",Consolas,monospace; font-size: 12px; max-height: 200px; overflow-y: auto; line-height: 1.7; margin-top: 12px; white-space: pre-wrap; }
         .log-box .ts { color: #64748b; } .log-box .ok { color: #34d399; } .log-box .err { color: #f87171; } .log-box .info { color: #60a5fa; }
 
         /* Modal */
-        .modal-overlay {
-            position: fixed; inset: 0; z-index: 9999; background: rgba(0,0,0,.45);
-            display: flex; align-items: center; justify-content: center; display: none;
-        }
+        .modal-overlay { position: fixed; inset: 0; z-index: 9999; background: rgba(0,0,0,.45); display: flex; align-items: center; justify-content: center; display: none; }
         .modal-overlay.show { display: flex; }
         .modal-box { background: #fff; border-radius: 14px; padding: 28px; width: 460px; max-width: 95vw; max-height: 90vh; overflow-y: auto; box-shadow: 0 20px 50px rgba(0,0,0,.2); }
         .modal-box h3 { margin-bottom: 16px; }
-        .modal-box .close { float: right; background: none; border: none; font-size: 24px; cursor: pointer; color: #999; }
+        .modal-box .close { float: right; background: none; border: none; font-size: 24px; cursor: pointer; color: #999; line-height: 1; }
 
-        /* Table (admin) */
+        /* Auth */
+        .auth-tabs { display: flex; margin-bottom: 20px; background: #f1f5f9; border-radius: 10px; padding: 4px; }
+        .auth-tab { flex: 1; padding: 10px; border: none; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 600; transition: .2s; background: transparent; color: var(--tx2); }
+        .auth-tab.active { background: #fff; color: var(--pri); box-shadow: 0 1px 3px rgba(0,0,0,.1); }
+        .auth-field { display: flex; align-items: center; margin-bottom: 12px; border: 1.5px solid var(--bd); border-radius: 10px; overflow: hidden; transition: .2s; }
+        .auth-field:focus-within { border-color: var(--pri); }
+        .auth-field-icon { padding: 0 14px; font-size: 16px; background: #f8fafc; align-self: stretch; display: flex; align-items: center; }
+        .auth-field input { flex: 1; border: none; padding: 12px; font-size: 14px; outline: none; background: transparent; }
+
+        /* Buy */
+        .preset-btn { padding: 16px; border: 2px solid var(--bd); border-radius: 10px; background: #fff; cursor: pointer; transition: .2s; text-align: center; width: 100%; font-family: inherit; }
+        .preset-btn:hover { border-color: var(--pri); }
+        .preset-btn.active { border-color: var(--pri); background: #eef2ff; }
+
+        /* Table */
         .tbl { width: 100%; border-collapse: collapse; font-size: 13px; }
-        .tbl th, .tbl td { padding: 10px 12px; border-bottom: 1px solid var(--bd); text-align: left; }
+        .tbl th,.tbl td { padding: 10px 12px; border-bottom: 1px solid var(--bd); text-align: left; }
         .tbl th { background: #f8fafc; font-weight: 600; color: var(--tx2); font-size: 12px; }
 
         /* Toast */
-        .toast-c {
-            position: fixed; top: 16px; left: 50%; transform: translateX(-50%); z-index: 99999;
-            display: flex; flex-direction: column; gap: 6px; pointer-events: none;
-        }
-        .toast {
-            padding: 10px 22px; border-radius: 8px; color: #fff; font-size: 13px; font-weight: 500;
-            box-shadow: 0 4px 14px rgba(0,0,0,.2); animation: tIn .3s;
-        }
+        .toast-c { position: fixed; top: 16px; left: 50%; transform: translateX(-50%); z-index: 99999; display: flex; flex-direction: column; gap: 6px; pointer-events: none; }
+        .toast { padding: 10px 22px; border-radius: 8px; color: #fff; font-size: 13px; font-weight: 500; box-shadow: 0 4px 14px rgba(0,0,0,.2); animation: tIn .3s; }
         .toast.e { background: var(--err); } .toast.s { background: var(--ok); } .toast.i { background: var(--pri); }
         @keyframes tIn { from { opacity: 0; transform: translateY(-8px); } to { opacity: 1; transform: translateY(0); } }
-
         .hidden { display: none !important; }
+        .field { margin-bottom: 14px; }
+        .field label { display: block; font-size: 13px; font-weight: 600; color: var(--tx2); margin-bottom: 5px; }
+        .field input,.field textarea,.field select { width: 100%; padding: 11px 14px; border: 1.5px solid var(--bd); border-radius: 8px; font-size: 14px; outline: none; transition: .2s; font-family: inherit; }
+        .field input:focus,.field textarea:focus,.field select:focus { border-color: var(--pri); }
     </style>
 </head>
 <body>
@@ -165,36 +112,23 @@
 
 <!-- Auth Modal -->
 <div class="modal-overlay" id="authModal">
-    <div class="modal-box auth-box-new">
+    <div class="modal-box">
         <button class="close" onclick="hideAuth()">×</button>
         <div style="text-align:center;margin-bottom:24px;">
             <div style="font-size:40px;margin-bottom:8px;">📋</div>
             <h2 id="authTitle" style="margin:0;font-size:20px;">欢迎回来</h2>
             <p id="authSub" style="color:var(--tx2);font-size:13px;margin:4px 0 0;">登录你的账号，开始使用</p>
         </div>
-
         <div class="auth-tabs">
             <button id="tabLogin" class="auth-tab active" onclick="switchTab('login')">登 录</button>
             <button id="tabRegister" class="auth-tab" onclick="switchTab('register')">注 册</button>
         </div>
-
         <form id="authForm" onsubmit="doAuth(event)">
-            <div class="auth-field">
-                <div class="auth-field-icon">👤</div>
-                <input type="text" id="authUser" placeholder="请输入用户名" minlength="3" maxlength="20" required autocomplete="username">
-            </div>
-            <div class="auth-field">
-                <div class="auth-field-icon">🔒</div>
-                <input type="password" id="authPass" placeholder="请输入密码（至少6位）" minlength="6" required autocomplete="current-password">
-            </div>
-            <div class="auth-field hidden" id="confirmPassField">
-                <div class="auth-field-icon">🔒</div>
-                <input type="password" id="authConfirmPass" placeholder="请再次输入密码" minlength="6">
-            </div>
+            <div class="auth-field"><div class="auth-field-icon">👤</div><input type="text" id="authUser" placeholder="请输入用户名" minlength="3" maxlength="20" required autocomplete="username"></div>
+            <div class="auth-field"><div class="auth-field-icon">🔒</div><input type="password" id="authPass" placeholder="请输入密码（至少6位）" minlength="6" required autocomplete="current-password"></div>
+            <div class="auth-field hidden" id="confirmPassField"><div class="auth-field-icon">🔒</div><input type="password" id="authConfirmPass" placeholder="请再次输入密码" minlength="6"></div>
             <div id="authError" style="color:var(--err);font-size:12px;margin-bottom:10px;display:none;text-align:center;"></div>
-            <div id="authInfo" style="color:var(--tx2);font-size:12px;margin-bottom:10px;text-align:center;">
-                🎁 新用户注册即送每日免费次数
-            </div>
+            <div id="authInfo" style="color:var(--tx2);font-size:12px;margin-bottom:10px;text-align:center;">🎁 新用户注册即送每日免费次数</div>
             <button type="submit" class="btn btn-pri" style="width:100%;padding:13px;font-size:15px;border-radius:10px;" id="authSubmitBtn">登 录</button>
         </form>
     </div>
@@ -206,60 +140,45 @@
         <button class="close" onclick="closeBuy()">×</button>
         <h3>💰 购买提交次数</h3>
         <div style="background:#fef9c3;padding:12px;border-radius:8px;margin-bottom:16px;font-size:13px;color:#92400e;line-height:1.8;">
-            📐 <b>计价规则：100次 = 10元，每满100次再送10次</b><br>
-            💡 买100次→实得<b>110次</b>=10元 | 买200次→实得<b>220次</b>=20元 | 买400次→实得<b>440次</b>=40元
+            📐 <b>100次 = 10元，每满100次再送10次</b><br>
+            💡 买100→实得<b>110次</b>=10元 | 买200→实得<b>220次</b>=20元 | 买400→实得<b>440次</b>=40元
         </div>
-
-        <!-- 预设选项按钮 -->
         <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:14px;">
-            <button class="btn" id="preset100" onclick="selectPreset(100)" style="padding:16px;border:2px solid var(--bd);border-radius:10px;background:#fff;cursor:pointer;transition:.2s;text-align:center;">
-                <div style="font-size:22px;font-weight:700;">💎 100次</div>
-                <div style="font-size:13px;color:var(--tx2);">买100送10=得110次</div>
-                <div style="font-size:18px;font-weight:700;color:var(--err);margin-top:4px;">¥10</div>
+            <button class="preset-btn" id="preset100" onclick="selectPreset(100)">
+                <div style="font-size:20px;font-weight:700;">💎 100次</div><div style="font-size:12px;color:var(--tx2);">送10=得110次</div><div style="font-size:16px;font-weight:700;color:var(--err);margin-top:4px;">¥10</div>
             </button>
-            <button class="btn" id="preset200" onclick="selectPreset(200)" style="padding:16px;border:2px solid var(--pri);border-radius:10px;background:#eef2ff;cursor:pointer;transition:.2s;text-align:center;">
-                <div style="font-size:22px;font-weight:700;">⭐ 200次</div>
-                <div style="font-size:13px;color:var(--tx2);">买200送20=得220次</div>
-                <div style="font-size:18px;font-weight:700;color:var(--err);margin-top:4px;">¥20</div>
-                <div style="font-size:10px;color:var(--pri);margin-top:2px;">推荐</div>
+            <button class="preset-btn active" id="preset200" onclick="selectPreset(200)">
+                <div style="font-size:20px;font-weight:700;">⭐ 200次</div><div style="font-size:12px;color:var(--tx2);">送20=得220次</div><div style="font-size:16px;font-weight:700;color:var(--err);margin-top:4px;">¥20</div><div style="font-size:10px;color:var(--pri);margin-top:2px;">推荐</div>
             </button>
-            <button class="btn" id="preset400" onclick="selectPreset(400)" style="padding:16px;border:2px solid var(--bd);border-radius:10px;background:#fff;cursor:pointer;transition:.2s;text-align:center;">
-                <div style="font-size:22px;font-weight:700;">🔥 400次</div>
-                <div style="font-size:13px;color:var(--tx2);">买400送40=得440次</div>
-                <div style="font-size:18px;font-weight:700;color:var(--err);margin-top:4px;">¥40</div>
+            <button class="preset-btn" id="preset400" onclick="selectPreset(400)">
+                <div style="font-size:20px;font-weight:700;">🔥 400次</div><div style="font-size:12px;color:var(--tx2);">送40=得440次</div><div style="font-size:16px;font-weight:700;color:var(--err);margin-top:4px;">¥40</div>
             </button>
         </div>
-
-        <!-- 自定义数量 -->
         <div style="border-top:1px solid var(--bd);padding-top:12px;">
-            <div class="field"><label>或自定义购买数量</label>
-                <input type="number" id="buyAmount" value="200" min="100" step="100" oninput="calcBuy()" style="width:100%;padding:10px;border:1.5px solid var(--bd);border-radius:8px;font-size:16px;">
-            </div>
+            <div class="field"><label>或自定义购买数量</label><input type="number" id="buyAmount" value="200" min="100" step="100" oninput="calcBuy()"></div>
         </div>
-
-        <!-- 计算结果 -->
         <div style="background:#f8fafc;padding:12px;border-radius:8px;margin:12px 0;">
-            <div style="display:flex;justify-content:space-between;margin-bottom:6px;">
-                <span>购买数量：</span><span id="buyShowAmount">200次</span>
-            </div>
-            <div style="display:flex;justify-content:space-between;margin-bottom:6px;">
-                <span>🎁 赠送：</span><span style="color:var(--ok);font-weight:700;" id="buyShowBonus">+20次</span>
-            </div>
-            <div style="display:flex;justify-content:space-between;font-size:18px;font-weight:700;border-top:1px solid var(--bd);padding-top:8px;">
-                <span>实得次数：</span><span style="color:var(--pri);" id="buyShowTotal">220次</span>
-            </div>
-            <div style="display:flex;justify-content:space-between;font-size:20px;font-weight:700;margin-top:4px;">
-                <span>应付金额：</span><span style="color:var(--err);" id="buyPrice">¥20.00</span>
-            </div>
+            <div style="display:flex;justify-content:space-between;margin-bottom:4px;"><span>购买：</span><span id="buyShowAmount">200次</span></div>
+            <div style="display:flex;justify-content:space-between;margin-bottom:4px;"><span>🎁 赠送：</span><span style="color:var(--ok);font-weight:700;" id="buyShowBonus">+20次</span></div>
+            <div style="display:flex;justify-content:space-between;font-size:16px;font-weight:700;border-top:1px solid var(--bd);padding-top:6px;"><span>实得：</span><span style="color:var(--pri);" id="buyShowTotal">220次</span></div>
+            <div style="display:flex;justify-content:space-between;font-size:20px;font-weight:700;margin-top:4px;"><span>应付：</span><span style="color:var(--err);" id="buyPrice">¥20.00</span></div>
         </div>
-
-        <div class="field"><label>支付备注（选填）</label><input type="text" id="buyNote" placeholder="如微信转账单号后几位"></div>
-
-        <div id="buyQrcode" style="text-align:center;margin:12px 0;">
-            <img id="buyQrImg" src="shoukuanma.jpg" style="max-width:200px;border-radius:8px;" alt="收款码">
-            <p style="font-size:12px;color:var(--tx2);margin-top:6px;" id="buyQrText"></p>
+        <div id="buyQrcode" style="text-align:center;margin:12px 0;background:#fafafa;padding:12px;border-radius:8px;">
+            <div style="font-size:13px;font-weight:600;margin-bottom:8px;">📱 微信扫码付款</div>
+            <img id="buyQrImg" src="shoukuanma.jpg" style="max-width:180px;border-radius:8px;display:block;margin:0 auto;" alt="收款码">
+            <p style="font-size:11px;color:var(--tx2);margin-top:6px;" id="buyQrText">扫码付款 → 生成订单 → 点「我已付款」→ 自动到账</p>
         </div>
+        <div class="field" style="margin-bottom:12px;"><label>支付备注（选填）</label><input type="text" id="buyNote" placeholder="如转账单号后几位"></div>
         <button class="btn btn-pri" style="width:100%;padding:14px;font-size:16px;" onclick="doBuy()">📝 生成订单</button>
+    </div>
+</div>
+
+<!-- My Orders Modal -->
+<div class="modal-overlay" id="ordersModal">
+    <div class="modal-box" style="width:550px;">
+        <button class="close" onclick="closeOrders()">×</button>
+        <h3>📋 我的订单</h3>
+        <div id="ordersContent"><p style="color:var(--tx2);">加载中...</p></div>
     </div>
 </div>
 
@@ -278,19 +197,8 @@
     </div>
 </div>
 
-<!-- My Orders Modal -->
-<div class="modal-overlay" id="ordersModal">
-    <div class="modal-box" style="width:550px;">
-        <button class="close" onclick="closeOrders()">×</button>
-        <h3>📋 我的订单</h3>
-        <div id="ordersContent"><p style="color:var(--tx2);">加载中...</p></div>
-    </div>
-</div>
-
-<!-- Main Content -->
+<!-- Main -->
 <div class="main" id="mainApp">
-
-    <!-- Stats -->
     <div class="stats-row">
         <div class="stat-card"><div class="val" id="stCredits">0</div><div class="lbl">🪙 剩余次数</div></div>
         <div class="stat-card"><div class="val" id="stUsed">0</div><div class="lbl">📊 累计使用</div></div>
@@ -301,33 +209,26 @@
         </div>
     </div>
 
-    <!-- Step 1: URL -->
     <div class="card">
         <div class="card-h">🔗 Step 1 — 输入问卷星链接</div>
         <div class="url-row">
             <input type="text" id="urlInput" placeholder="粘贴问卷星链接: https://www.wjx.cn/vm/xxxx.aspx">
             <button class="btn btn-pri" id="btnAnalyze" onclick="doAnalyze()" style="padding:12px 24px;font-size:15px;">🔍 分析问卷</button>
         </div>
-        <div style="margin-top:8px;font-size:12px;color:var(--tx2);">按 Ctrl+Enter 快速分析</div>
     </div>
 
-    <!-- Step 2: Questions (hidden initially) -->
     <div class="card hidden" id="step2">
         <div class="card-h">📝 Step 2 — 题目列表</div>
-        <div class="survey-bar hidden" id="surveyBar">
-            <span>📋</span><span class="s-name" id="sName">-</span><span class="s-num" id="sCount">0题</span>
-        </div>
+        <div class="survey-bar hidden" id="surveyBar"><span>📋</span><span class="s-name" id="sName"></span><span class="s-num" id="sCount"></span></div>
         <div class="q-list" id="qList"></div>
     </div>
 
-    <!-- Step 3: Config (hidden initially) -->
     <div class="card hidden" id="step3">
         <div class="card-h">⚙️ Step 3 — 配置提交</div>
         <div class="config-row">
             <div><label>📦 提交份数</label><input type="number" id="cnt" value="10" min="1" max="500"></div>
             <div><label>⏱ 间隔(ms)</label><input type="number" id="dly" value="800" min="200" max="10000"></div>
             <div><label>🎲 答案模式</label><select id="mode"><option value="random">随机选择</option><option value="custom">自定义</option><option value="mixed">混合(自定义优先)</option></select></div>
-            <div><label>🌐 IP模式</label><select id="ipMode"><option value="rotate">每5-15份换IP</option><option value="each">每份都换IP</option><option value="fixed">固定IP</option></select></div>
         </div>
         <div style="margin-top:14px;display:flex;gap:10px;flex-wrap:wrap;">
             <button class="btn btn-ok" id="btnGo" onclick="doBatch()" style="padding:12px 28px;font-size:15px;">🚀 开始批量提交</button>
@@ -336,12 +237,9 @@
             <button class="btn btn-ghost" onclick="document.getElementById('impF').click()">📥 导入配置</button>
             <input type="file" id="impF" accept=".json" style="display:none;" onchange="importCfg(this)">
         </div>
-        <div style="margin-top:8px;font-size:12px;color:var(--err);">
-            ⚠️ 每提交一份消耗 <b>1 次</b>，请确保次数足够！
-        </div>
+        <div style="margin-top:8px;font-size:12px;color:var(--err);">⚠️ 每提交一份消耗 <b>1 次</b>，请确保次数足够！</div>
     </div>
 
-    <!-- Progress -->
     <div class="prog hidden" id="progPanel">
         <div class="card-h">📊 任务进度</div>
         <div class="prog-bar"><div id="progBar"></div></div>
@@ -354,495 +252,277 @@
         </div>
         <div class="log-box" id="logBox"><span class="info">等待开始...</span></div>
     </div>
-
 </div>
 
 <script>
-// ==================== Global State ====================
+// ═══════════ Global State ═══════════
 let token = localStorage.getItem('wjx_token') || '';
 let user = null;
 let surveyData = null;
 let isRunning = false;
 let abortCtrl = null;
 let authMode = 'login';
+let publicSettings = null;
 
 const $ = s => document.querySelector(s);
 const $$ = s => document.querySelectorAll(s);
 
-// ==================== Init ====================
+function authHeaders() { return { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' }; }
+
+// ═══════════ Init ═══════════
 async function init() {
+    loadPublicSettings();
     if (token) {
         try {
             const r = await fetch('/api/auth/me', { headers: authHeaders() });
-            if (r.ok) {
-                user = await r.json();
-                updateUI();
-            } else { token = ''; localStorage.removeItem('wjx_token'); }
-        } catch(e) { /* offline */ }
+            if (r.ok) { user = await r.json(); updateUI(); }
+            else { token = ''; localStorage.removeItem('wjx_token'); }
+        } catch (e) { /* offline */ }
     }
-    loadPublicSettings();
 }
 init();
 
-function authHeaders() {
-    return { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' };
+// ═══════════ Toast ═══════════
+function toast(m, t = 'i') {
+    const c = $('#toasts'), d = document.createElement('div');
+    d.className = `toast ${t==='e'?'e':t==='s'?'s':'i'}`;
+    d.textContent = m; c.appendChild(d);
+    setTimeout(() => { d.style.opacity = '0'; d.style.transition = 'opacity .3s'; setTimeout(() => d.remove(), 300); }, 3000);
 }
 
-// ==================== Toast ====================
-function toast(m, t='i') {
-    const c = $('#toasts');
-    const d = document.createElement('div');
-    d.className = 'toast ' + (t==='e'?'e':t==='s'?'s':'i');
-    d.textContent = m;
-    c.appendChild(d);
-    setTimeout(() => { d.style.opacity='0'; d.style.transition='opacity .3s'; setTimeout(()=>d.remove(),300); }, 3000);
+// ═══════════ Public Settings ═══════════
+async function loadPublicSettings() {
+    try {
+        const r = await fetch('/api/public-settings'); publicSettings = await r.json();
+        $('#hdTitle').textContent = publicSettings.siteName || '问卷星自动填写平台';
+        $('#stFree').textContent = publicSettings.dailyFree || 3;
+    } catch (e) {}
 }
 
-// ==================== Auth ====================
+// ═══════════ Auth ═══════════
 function showAuth() { $('#authModal').classList.add('show'); switchTab('login'); }
 function hideAuth() { $('#authModal').classList.remove('show'); }
 function switchTab(t) {
     authMode = t;
-    ['tabLogin','tabRegister'].forEach(id=>$('#'+id).classList.toggle('active',id==='tab'+t.charAt(0).toUpperCase()+t.slice(1)));
-    $('#authTitle').textContent = t==='login'?'欢迎回来':'创建账号';
-    $('#authSub').textContent = t==='login'?'登录你的账号，开始使用':'注册新账号，即送每日免费次数';
-    $('#authSubmitBtn').textContent = t==='login'?'登 录':'注 册';
-    $('#authInfo').style.display = t==='login'?'block':'none';
-    $('#confirmPassField').classList.toggle('hidden', t==='login');
-    $('#authError').style.display='none';
+    ['tabLogin', 'tabRegister'].forEach(id => $('#' + id).classList.toggle('active', id === 'tab' + t.charAt(0).toUpperCase() + t.slice(1)));
+    $('#authTitle').textContent = t === 'login' ? '欢迎回来' : '创建账号';
+    $('#authSub').textContent = t === 'login' ? '登录你的账号，开始使用' : '注册新账号，即送每日免费次数';
+    $('#authSubmitBtn').textContent = t === 'login' ? '登 录' : '注 册';
+    $('#authInfo').style.display = t === 'login' ? 'block' : 'none';
+    $('#confirmPassField').classList.toggle('hidden', t === 'login');
+    $('#authError').style.display = 'none';
 }
-
 async function doAuth(e) {
     e.preventDefault();
-    const username = $('#authUser').value.trim();
-    const password = $('#authPass').value;
-    $('#authError').style.display='none';
-
-    if (authMode==='register') {
-        const confirmPw = $('#authConfirmPass').value;
-        if (password !== confirmPw) {
-            return showAuthError('两次输入的密码不一致');
-        }
+    const username = $('#authUser').value.trim(), password = $('#authPass').value;
+    $('#authError').style.display = 'none';
+    if (authMode === 'register') {
+        if (password !== $('#authConfirmPass').value) return showAuthError('两次输入的密码不一致');
     }
-
     const ep = authMode === 'login' ? '/api/auth/login' : '/api/auth/register';
     try {
-        const r = await fetch(ep, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({username,password}) });
+        const r = await fetch(ep, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username, password }) });
         const d = await r.json();
-        if (!r.ok) { showAuthError(d.error||'操作失败'); return; }
+        if (!r.ok) { showAuthError(d.error || '操作失败'); return; }
         token = d.token; user = d.user;
         localStorage.setItem('wjx_token', token);
-        updateUI();
-        hideAuth();
-        toast(authMode==='login'?`欢迎回来，${user.username}！`:`注册成功！送你${d.user.credits}次免费额度`,'s');
-    } catch(e) { showAuthError('网络错误，请稍后重试'); }
+        updateUI(); hideAuth();
+        toast(authMode === 'login' ? `欢迎回来，${user.username}！` : `注册成功！送你 ${d.user.credits} 次免费额度`, 's');
+    } catch (e) { showAuthError('网络错误，请稍后重试'); }
 }
+function showAuthError(msg) { $('#authError').textContent = msg; $('#authError').style.display = 'block'; }
+function logout() { token = ''; user = null; localStorage.removeItem('wjx_token'); updateUI(); toast('已退出'); }
 
-function showAuthError(msg) {
-    $('#authError').textContent = msg;
-    $('#authError').style.display = 'block';
-}
-
-function logout() {
-    token = ''; user = null;
-    localStorage.removeItem('wjx_token');
-    updateUI();
-    toast('已退出登录');
-}
-
-// ==================== UI Update ====================
+// ═══════════ UI ═══════════
 function updateUI() {
-    const loggedIn = !!user;
-    $('#hdLoginBtn').classList.toggle('hidden', loggedIn);
-    $('#hdLogoutBtn').classList.toggle('hidden', !loggedIn);
-    $('#hdCredits').classList.toggle('hidden', !loggedIn);
-    $('#hdUser').classList.toggle('hidden', !loggedIn);
-    $('#hdAdmin').classList.toggle('hidden', !loggedIn || user?.role !== 'admin');
-
+    const ok = !!user;
+    $('#hdLoginBtn').classList.toggle('hidden', ok);
+    $('#hdLogoutBtn').classList.toggle('hidden', !ok);
+    $('#hdCredits').classList.toggle('hidden', !ok);
+    $('#hdUser').classList.toggle('hidden', !ok);
+    $('#hdAdmin').classList.toggle('hidden', !ok || user?.role !== 'admin');
     if (user) {
         $('#hdUserVal').textContent = user.username;
         $('#hdCreditsVal').textContent = user.credits;
         $('#stCredits').textContent = user.credits;
         $('#stUsed').textContent = user.totalUsed || 0;
-        $('#stFree').textContent = publicSettings?.dailyFree || 3;
-        if (user.role === 'admin') {
-            if (!$('#adminBtn')) {
-                const b = document.createElement('button');
-                b.id='adminBtn'; b.className='btn btn-sm'; b.style.cssText='background:#fef3c7;color:#92400e;';
-                b.textContent='🛡️ 管理';
-                b.onclick = openAdmin;
-                document.querySelector('.header .user-area').prepend(b);
-            }
+        if (user.role === 'admin' && !$('#adminBtn')) {
+            const b = document.createElement('button'); b.id = 'adminBtn'; b.className = 'btn btn-sm'; b.style.cssText = 'background:#fef3c7;color:#92400e;'; b.textContent = '🛡️ 管理'; b.onclick = openAdmin;
+            document.querySelector('.header .user-area').prepend(b);
         }
-    } else {
-        $('#stCredits').textContent = '-';
-        $('#stUsed').textContent = '-';
-        $('#stFree').textContent = publicSettings?.dailyFree || 3;
-    }
+    } else { $('#stCredits').textContent = '-'; $('#stUsed').textContent = '-'; }
 }
 
-// ==================== Public Settings ====================
-let publicSettings = null;
-async function loadPublicSettings() {
-    try {
-        const r = await fetch('/api/public-settings');
-        publicSettings = await r.json();
-        $('#hdTitle').textContent = publicSettings.siteName || '问卷星自动填写平台';
-        $('#stFree').textContent = publicSettings.dailyFree || 3;
-    } catch(e) {}
-}
-
-// Remove old buyPricePer reference - price is now hardcoded in calcBuy()
-
-// ==================== Analyze ====================
+// ═══════════ Analyze ═══════════
 async function doAnalyze() {
-    if (!user) { toast('请先登录','e'); showAuth(); return; }
+    if (!user) { toast('请先登录', 'e'); showAuth(); return; }
     const url = $('#urlInput').value.trim();
-    if (!url) { toast('请输入问卷链接','e'); return; }
-    if (!url.includes('wjx.cn')&&!url.includes('wjx.com')&&!url.includes('wjx.top')&&!url.includes('sojump.com')) {
-        toast('请输入有效的问卷星链接','e'); return;
+    if (!url || (!url.includes('wjx.cn') && !url.includes('wjx.com') && !url.includes('wjx.top') && !url.includes('sojump.com'))) {
+        toast('请输入有效的问卷星链接', 'e'); return;
     }
-
-    $('#btnAnalyze').disabled = true;
-    $('#btnAnalyze').textContent = '分析中...';
-
+    $('#btnAnalyze').disabled = true; $('#btnAnalyze').textContent = '分析中...';
     try {
-        const r = await fetch('/api/analyze', { method:'POST', headers:authHeaders(), body:JSON.stringify({url}) });
+        const r = await fetch('/api/analyze', { method: 'POST', headers: authHeaders(), body: JSON.stringify({ url }) });
         const d = await r.json();
-        if (!d.success) { toast(d.error||'分析失败','e'); return; }
-        surveyData = d;
-        console.log('[问卷]',d);
-        renderQuestions(d.questions);
-        $('#surveyBar').classList.remove('hidden');
-        $('#sName').textContent = d.title;
-        $('#sCount').textContent = `共 ${d.questionCount} 题`;
-        ['step2','step3'].forEach(id=>$('#'+id).classList.remove('hidden'));
-        $('#step3').scrollIntoView({behavior:'smooth',block:'center'});
-        toast(`✅ 检测到 ${d.questionCount} 题`,'s');
-    } catch(e) { toast('网络错误: '+e.message,'e'); }
-    finally { $('#btnAnalyze').disabled=false; $('#btnAnalyze').textContent='🔍 分析问卷'; }
+        if (!d.success) { toast(d.error || '分析失败', 'e'); return; }
+        surveyData = d; renderQuestions(d.questions);
+        $('#surveyBar').classList.remove('hidden'); $('#sName').textContent = d.title; $('#sCount').textContent = `共 ${d.questionCount} 题`;
+        ['step2', 'step3'].forEach(id => $('#' + id).classList.remove('hidden'));
+        toast(`✅ 检测到 ${d.questionCount} 题`, 's');
+    } catch (e) { toast('网络错误: ' + e.message, 'e'); }
+    finally { $('#btnAnalyze').disabled = false; $('#btnAnalyze').textContent = '🔍 分析问卷'; }
 }
 
-// ==================== Render Questions ====================
-const TN = {radio:{l:'单选',c:'rd'},checkbox:{l:'多选',c:'ch'},text:{l:'填空',c:'tx'},textarea:{l:'多行',c:'tx'},select:{l:'下拉',c:'rd'},star:{l:'评分',c:'st'},sort:{l:'排序',c:'ch'},matrix:{l:'矩阵',c:'rd'}};
-
+// ═══════════ Questions ═══════════
+const TN = { radio: { l: '单选', c: 'rd' }, checkbox: { l: '多选', c: 'ch' }, text: { l: '填空', c: 'tx' }, textarea: { l: '多行', c: 'tx' }, select: { l: '下拉', c: 'rd' }, star: { l: '评分', c: 'st' } };
 function renderQuestions(qs) {
-    $('#qList').innerHTML = qs.map((q,i)=>{
-        const t=TN[q.type]||{l:q.type,c:''};
-        let c='';
-        switch(q.type){
+    $('#qList').innerHTML = qs.map((q, i) => {
+        const t = TN[q.type] || { l: q.type, c: '' };
+        let c = '';
+        switch (q.type) {
             case 'radio': case 'select':
-                c=q.options.length?`<select data-fn="${q.fieldName||''}" data-idx="${i}" data-t="${q.type}"><option value="-1">🎲 随机</option>${q.options.map((o,oi)=>`<option value="${esc(o.val)}">${String.fromCharCode(65+oi)}. ${esc(o.text||o.val)}</option>`).join('')}</select>`:'<span style="font-size:12px;color:#888;">随机填写</span>';
+                c = q.options.length ? `<select data-fn="${q.fieldName || ''}" data-idx="${i}"><option value="-1">🎲 随机</option>${q.options.map((o, oi) => `<option value="${esc(o.val)}">${String.fromCharCode(65 + oi)}. ${esc(o.text || o.val)}</option>`).join('')}</select>` : '<span style="font-size:12px;color:#888;">随机</span>';
                 break;
             case 'checkbox':
-                c=q.options.length?`<div style="display:flex;flex-wrap:wrap;gap:6px;">${q.options.map((o,oi)=>`<label style="font-size:12px;cursor:pointer;"><input type="checkbox" data-fn="${q.fieldName||''}" data-idx="${i}" data-val="${esc(o.val)}"> ${esc(o.text||o.val)}</label>`).join('')}</div>`:'<span style="font-size:12px;color:#888;">随机勾选</span>';
+                c = q.options.length ? `<div style="display:flex;flex-wrap:wrap;gap:6px;">${q.options.map((o, oi) => `<label style="font-size:12px;cursor:pointer;"><input type="checkbox" data-fn="${q.fieldName || ''}" data-idx="${i}" data-val="${esc(o.val)}"> ${esc(o.text || o.val)}</label>`).join('')}</div>` : '<span style="font-size:12px;color:#888;">随机</span>';
                 break;
             case 'text': case 'textarea':
-                c=`<textarea rows="2" data-fn="${q.fieldName||''}" data-idx="${i}" data-t="text" placeholder="留空=随机生成"></textarea>`;
+                c = `<textarea rows="2" data-fn="${q.fieldName || ''}" data-idx="${i}" placeholder="留空=随机生成"></textarea>`;
                 break;
             case 'star':
-                c=`<select data-fn="${q.fieldName||''}" data-idx="${i}" data-t="star"><option value="-1">🎲 3-5星</option>${[1,2,3,4,5].map(n=>`<option value="${n}">${'★'.repeat(n)}${'☆'.repeat(5-n)}</option>`).join('')}</select>`;
+                c = `<select data-fn="${q.fieldName || ''}" data-idx="${i}"><option value="-1">🎲 3-5星</option>${[1, 2, 3, 4, 5].map(n => `<option value="${n}">${'★'.repeat(n)}${'☆'.repeat(5 - n)}</option>`).join('')}</select>`;
                 break;
-            default: c='<span style="font-size:12px;color:#888;">自动处理</span>';
+            default: c = '<span style="font-size:12px;color:#888;">自动处理</span>';
         }
-        return `<div class="q-item"><div class="q-top"><span class="q-num">${i+1}</span><span class="q-tag ${t.c}">${t.l}</span><span class="q-title">${esc(q.title)}</span></div><div class="q-ctrl">${c}</div>${q.options.length?`<div style="font-size:11px;color:#999;margin-left:30px;margin-top:4px;">📎 ${q.options.length}个选项</div>`:''}</div>`;
+        return `<div class="q-item"><div class="q-top"><span class="q-num">${i + 1}</span><span class="q-tag ${t.c}">${t.l}</span><span class="q-title">${esc(q.title)}</span></div><div class="q-ctrl">${c}</div>${q.options.length ? `<div style="font-size:11px;color:#999;margin-left:30px;margin-top:4px;">📎 ${q.options.length}个选项</div>` : ''}</div>`;
     }).join('');
 }
 
 function collectConfig() {
     const cfg = {};
-    $$('#qList .q-item').forEach(item=>{
-        const sel = item.querySelector('select');
-        if (sel) {
-            const fn = sel.dataset.fn; if (!fn || sel.value==='-1') return;
-            cfg[fn] = { val: sel.value };
-        }
+    $$('#qList .q-item').forEach(item => {
+        const sel = item.querySelector('select'); if (sel && sel.value !== '-1' && sel.dataset.fn) cfg[sel.dataset.fn] = { val: sel.value };
         const checks = item.querySelectorAll('input[type="checkbox"]:checked');
-        if (checks.length) {
-            const fn = checks[0].dataset.fn; if (!fn) return;
-            cfg[fn] = { vals: Array.from(checks).map(c=>c.dataset.val) };
-        }
-        const ta = item.querySelector('textarea');
-        if (ta && ta.value.trim()) {
-            const fn = ta.dataset.fn; if (!fn) return;
-            cfg[fn] = { text: ta.value.trim() };
-        }
+        if (checks.length && checks[0].dataset.fn) cfg[checks[0].dataset.fn] = { vals: Array.from(checks).map(c => c.dataset.val) };
+        const ta = item.querySelector('textarea'); if (ta && ta.value.trim() && ta.dataset.fn) cfg[ta.dataset.fn] = { text: ta.value.trim() };
     });
     return cfg;
 }
 
-// ==================== Batch Submit ====================
+// ═══════════ Batch ═══════════
 async function doBatch() {
-    if (!surveyData) { toast('请先分析问卷','e'); return; }
+    if (!surveyData) { toast('请先分析问卷', 'e'); return; }
     if (isRunning) return;
-    if (!user) { toast('请先登录','e'); showAuth(); return; }
+    if (!user) { toast('请先登录', 'e'); showAuth(); return; }
+    const cnt = parseInt($('#cnt').value) || 10, dly = parseInt($('#dly').value) || 800, mode = $('#mode').value;
+    if (cnt < 1 || cnt > 500) { toast('份数1-500', 'e'); return; }
+    if (dly < 200) { toast('间隔最少200ms', 'e'); return; }
 
-    const cnt = parseInt($('#cnt').value)||10;
-    const dly = parseInt($('#dly').value)||800;
-    const mode = $('#mode').value;
-    const ipMode = $('#ipMode').value;
+    const me = await fetch('/api/auth/me', { headers: authHeaders() }).then(r => r.json());
+    if (me.credits < cnt) { toast(`次数不足！剩余${me.credits}次，需要${cnt}次`, 'e'); openBuy(); return; }
 
-    if (cnt<1||cnt>500) { toast('份数1-500','e'); return; }
-    if (dly<200) { toast('间隔最少200ms','e'); return; }
-
-    // 检查次数
-    const me = await fetch('/api/auth/me',{headers:authHeaders()}).then(r=>r.json());
-    if (me.credits < cnt) {
-        toast(`次数不足！剩余${me.credits}次，需要${cnt}次`,'e');
-        openBuy();
-        return;
-    }
-
-    const cfg = (mode==='custom'||mode==='mixed') ? collectConfig() : {};
-    isRunning = true;
-    $('#btnGo').disabled=true;
-    $('#btnStop').disabled=false;
-    $('#progPanel').classList.remove('hidden');
-    $('#progPanel').scrollIntoView({behavior:'smooth',block:'center'});
-    $('#pT').textContent=cnt; $('#pS').textContent='0'; $('#pF').textContent='0'; $('#pP').textContent='0%';
-    $('#progBar').style.width='0%';
-    $('#logBox').innerHTML=`<span class="info">🚀 开始批量提交 ${cnt} 份, 间隔 ${dly}ms</span>\n`;
-
+    const cfg = (mode === 'custom' || mode === 'mixed') ? collectConfig() : {};
+    isRunning = true; $('#btnGo').disabled = true; $('#btnStop').disabled = false;
+    $('#progPanel').classList.remove('hidden'); $('#progPanel').scrollIntoView({ behavior: 'smooth', block: 'center' });
+    $('#pT').textContent = cnt; $('#pS').textContent = '0'; $('#pF').textContent = '0'; $('#pP').textContent = '0%'; $('#progBar').style.width = '0%';
+    $('#logBox').innerHTML = `<span class="info">🚀 开始批量提交 ${cnt} 份, 间隔 ${dly}ms</span>\n`;
     abortCtrl = new AbortController();
 
     try {
         const r = await fetch('/api/batch-submit', {
-            method:'POST', headers:authHeaders(),
-            body:JSON.stringify({
-                submitUrl:surveyData.submitUrl,
-                formDataTemplate:surveyData.hiddenFields||{},
-                questions:surveyData.questions,
-                count:cnt, delay:dly, referer:$('#urlInput').value.trim(),
-                customConfig:cfg, answerMode:mode,
-                ipMode,
-            }),
-            signal:abortCtrl.signal,
+            method: 'POST', headers: authHeaders(),
+            body: JSON.stringify({ submitUrl: surveyData.submitUrl, formDataTemplate: surveyData.hiddenFields || {}, questions: surveyData.questions, count: cnt, delay: dly, referer: $('#urlInput').value.trim(), customConfig: cfg, answerMode: mode }),
+            signal: abortCtrl.signal,
         });
-        const reader = r.body.getReader();
-        const dec = new TextDecoder();
-        while(true) {
-            const {done,value} = await reader.read();
-            if (done) break;
-            const lines = dec.decode(value,{stream:true}).split('\n').filter(l=>l.startsWith('data: '));
+        const reader = r.body.getReader(); const dec = new TextDecoder();
+        while (true) {
+            const { done, value } = await reader.read(); if (done) break;
+            const lines = dec.decode(value, { stream: true }).split('\n').filter(l => l.startsWith('data: '));
             for (const l of lines) {
                 try {
                     const ev = JSON.parse(l.slice(6));
-                    if (ev.type==='progress') {
-                        $('#pS').textContent=ev.success; $('#pF').textContent=ev.fail;
-                        $('#pP').textContent=ev.percent+'%'; $('#progBar').style.width=ev.percent+'%';
-                        $('#pIP').textContent='🌐 '+ev.ip;
-                        addLog(`<span class="ts">#${ev.current}/${ev.total}</span> ${ev.lastError?'⚠️':'✅'} 成功:${ev.success} 失败:${ev.fail} [${ev.ip}]`);
-                        if (ev.lastError) addLog(`  <span class="err">⚠ ${ev.lastError.slice(0,80)}</span>`);
-                    } else if (ev.type==='complete') {
-                        addLog(`<span class="ok">🎉 完成！成功${ev.success} 失败${ev.fail}</span>`);
-                        toast(`✅ 成功${ev.success}份 失败${ev.fail}份`,'s');
-                    } else if (ev.type==='credits') {
-                        user.credits = ev.credits;
-                        updateUI();
-                        addLog(`<span class="info">🪙 剩余次数: ${ev.credits}</span>`);
-                    } else if (ev.type==='error') {
-                        addLog(`<span class="err">❌ ${ev.error}</span>`);
-                        toast(ev.error,'e');
-                    }
-                } catch(_){}
+                    if (ev.type === 'progress') { $('#pS').textContent = ev.success; $('#pF').textContent = ev.fail; $('#pP').textContent = ev.percent + '%'; $('#progBar').style.width = ev.percent + '%'; $('#pIP').textContent = '🌐 ' + ev.ip; addLog(`<span class="ts">#${ev.current}/${ev.total}</span> ${ev.lastError ? '⚠️' : '✅'} 成功:${ev.success} 失败:${ev.fail} [${ev.ip}]`); if (ev.lastError) addLog(`  <span class="err">⚠ ${ev.lastError.slice(0, 80)}</span>`); }
+                    else if (ev.type === 'complete') { addLog(`<span class="ok">🎉 完成！成功${ev.success} 失败${ev.fail}</span>`); toast(`✅ 成功${ev.success}份 失败${ev.fail}份`, 's'); }
+                    else if (ev.type === 'credits') { user.credits = ev.credits; updateUI(); addLog(`<span class="info">🪙 剩余: ${ev.credits}</span>`); }
+                    else if (ev.type === 'error') { addLog(`<span class="err">❌ ${ev.error}</span>`); toast(ev.error, 'e'); }
+                } catch (_) { }
             }
         }
-    } catch(e) {
-        if (e.name!=='AbortError') {
-            addLog(`<span class="err">❌ ${e.message}</span>`);
-            toast(e.message,'e');
-        }
-    } finally {
-        isRunning=false; $('#btnGo').disabled=false; $('#btnStop').disabled=true;
-        // Refresh user credits
-        try {
-            const me2 = await fetch('/api/auth/me',{headers:authHeaders()}).then(r=>r.json());
-            user = me2; updateUI();
-        } catch(_){}
-    }
+    } catch (e) { if (e.name !== 'AbortError') { addLog(`<span class="err">❌ ${e.message}</span>`); toast(e.message, 'e'); } }
+    finally { isRunning = false; $('#btnGo').disabled = false; $('#btnStop').disabled = true; try { const me2 = await fetch('/api/auth/me', { headers: authHeaders() }).then(r => r.json()); user = me2; updateUI(); } catch (_) { } }
 }
+function stopBatch() { if (abortCtrl) abortCtrl.abort(); addLog('<span class="info">⏹ 停止中...</span>'); }
+function addLog(h) { const e = $('#logBox'); e.innerHTML += h + '\n'; e.scrollTop = e.scrollHeight; }
 
-function stopBatch() {
-    if (abortCtrl) abortCtrl.abort();
-    addLog('<span class="info">⏹ 停止中...</span>');
-}
-
-function addLog(h) { const e=$('#logBox'); e.innerHTML+=h+'\n'; e.scrollTop=e.scrollHeight; }
-
-// ==================== Buy ====================
+// ═══════════ Buy ═══════════
 function openBuy() { selectPreset(200); $('#buyModal').classList.add('show'); }
 function closeBuy() { $('#buyModal').classList.remove('show'); }
-
 function selectPreset(n) {
     $('#buyAmount').value = n;
-    // 更新按钮样式
-    $$('#buyModal .btn[id^="preset"]').forEach(b => { b.style.borderColor='var(--bd)'; b.style.background='#fff'; });
-    const active = $('#preset'+n); if (active) { active.style.borderColor='var(--pri)'; active.style.background='#eef2ff'; }
+    [100, 200, 400].forEach(v => { const b = $('#preset' + v); if (b) { b.classList.toggle('active', v === n); } });
     calcBuy();
 }
-
-function calcBuy() {
-    const a = parseInt($('#buyAmount').value) || 100;
-    const units100 = Math.ceil(a / 100);
-    const price = units100 * 10;
-    const bonus = units100 * 10;
-    const total = a + bonus;
-    $('#buyShowAmount').textContent = a + '次';
-    $('#buyShowBonus').textContent = '+' + bonus + '次';
-    $('#buyShowTotal').textContent = total + '次';
-    $('#buyPrice').textContent = '¥' + price.toFixed(2);
-}
-
+function calcBuy() { const a = parseInt($('#buyAmount').value) || 100; const u = Math.ceil(a / 100); const price = u * 10; const bonus = u * 10; const total = a + bonus; $('#buyShowAmount').textContent = a + '次'; $('#buyShowBonus').textContent = '+' + bonus + '次'; $('#buyShowTotal').textContent = total + '次'; $('#buyPrice').textContent = '¥' + price.toFixed(2); }
 async function doBuy() {
-    if (!user) { toast('请先登录','e'); return; }
-    const a = parseInt($('#buyAmount').value)||100;
-    const n = $('#buyNote').value;
+    if (!user) { toast('请先登录', 'e'); return; }
+    const a = parseInt($('#buyAmount').value) || 100, n = $('#buyNote').value;
     try {
-        const r = await fetch('/api/orders/create',{method:'POST',headers:authHeaders(),body:JSON.stringify({amount:a,paymentNote:n})});
+        const r = await fetch('/api/orders/create', { method: 'POST', headers: authHeaders(), body: JSON.stringify({ amount: a, paymentNote: n }) });
         const d = await r.json();
-        if (!d.success) { toast(d.error,'e'); return; }
-        // 收款码始终显示
-        $('#buyQrcode').classList.remove('hidden');
-        if (d.paymentInfo?.qrcode) {
-            $('#buyQrImg').src = d.paymentInfo.qrcode;
-            if (d.paymentInfo.instructions) $('#buyQrText').textContent = d.paymentInfo.instructions;
-        }
-        toast(`订单#${d.order.id}已生成！${d.pricing.yuan}元，实得${d.pricing.totalReceive}次（含赠送${d.pricing.bonus}次）`,'s');
+        if (!d.success) { toast(d.error, 'e'); return; }
+        toast(`订单#${d.order.id}已生成！${d.pricing.yuan}元，实得${d.pricing.totalReceive}次（含赠送${d.pricing.bonus}次）`, 's');
         closeBuy();
-    } catch(e) { toast('网络错误','e'); }
+    } catch (e) { toast('网络错误', 'e'); }
 }
 
-// ==================== Orders ====================
+// ═══════════ Orders ═══════════
 function openOrders() { $('#ordersModal').classList.add('show'); loadOrders(); }
-async function selfConfirm(id) {
-    if (!confirm('确认已付款？\n\n付款后次数将自动到账。')) return;
-    try {
-        const r = await fetch('/api/orders/self-confirm',{method:'POST',headers:authHeaders(),body:JSON.stringify({orderId:id})});
-        const d = await r.json();
-        if (d.success) {
-            toast(d.message,'s');
-            user.credits = d.credits;
-            updateUI();
-            loadOrders();
-        } else toast(d.error,'e');
-    } catch(e) { toast('操作失败','e'); }
-}
-
 function closeOrders() { $('#ordersModal').classList.remove('show'); }
 async function loadOrders() {
     try {
-        const r = await fetch('/api/orders/my',{headers:authHeaders()});
+        const r = await fetch('/api/orders/my', { headers: authHeaders() }); const d = await r.json();
+        const st = { pending: '⏳ 待确认', paid: '✅ 已到账', cancelled: '❌ 已拒绝' };
+        $('#ordersContent').innerHTML = d.orders.length ? `<table class="tbl"><tr><th>订单号</th><th>份数</th><th>金额</th><th>状态</th><th>时间</th><th>操作</th></tr>${d.orders.map(o => `<tr><td>#${o.id}</td><td>${o.amount}</td><td>${(o.price_cents / 100).toFixed(2)}元</td><td>${st[o.status] || o.status}</td><td>${new Date(o.created_at).toLocaleString('zh-CN')}</td><td>${o.status === 'pending' ? `<button class="btn btn-sm btn-ok" onclick="selfConfirm(${o.id})">我已付款</button>` : '-'}</td></tr>`).join('')}</table>` : '<p style="color:var(--tx2);text-align:center;">暂无订单</p>';
+    } catch (e) { $('#ordersContent').innerHTML = '<p style="color:var(--err);">加载失败</p>'; }
+}
+async function selfConfirm(id) {
+    if (!confirm('确认已付款？款项将自动到账。')) return;
+    try {
+        const r = await fetch('/api/orders/self-confirm', { method: 'POST', headers: authHeaders(), body: JSON.stringify({ orderId: id }) });
         const d = await r.json();
-        const st = {pending:'⏳ 待审核',paid:'✅ 已确认',cancelled:'❌ 已拒绝'};
-        $('#ordersContent').innerHTML = d.orders.length
-            ? `<table class="tbl"><tr><th>订单号</th><th>份数</th><th>金额</th><th>状态</th><th>时间</th><th>操作</th></tr>${d.orders.map(o=>`<tr><td>#${o.id}</td><td>${o.amount}</td><td>${(o.price_cents/100).toFixed(2)}元</td><td>${st[o.status]||o.status}</td><td>${new Date(o.created_at).toLocaleString('zh-CN')}</td><td>${o.status==='pending'?`<button class="btn btn-sm btn-ok" onclick="selfConfirm(${o.id})">我已付款</button>`:'-'}</td></tr>`).join('')}</table>`
-            : '<p style="color:var(--tx2);">暂无订单</p>';
-    } catch(e) { $('#ordersContent').innerHTML='<p style="color:var(--err);">加载失败</p>'; }
+        if (d.success) { toast(d.message, 's'); user.credits = d.credits; updateUI(); loadOrders(); }
+        else toast(d.error, 'e');
+    } catch (e) { toast('操作失败', 'e'); }
 }
 
-// ==================== Admin ====================
+// ═══════════ Admin ═══════════
 function openAdmin() { $('#adminModal').classList.add('show'); adminTab('orders'); }
 function closeAdmin() { $('#adminModal').classList.remove('show'); }
 async function adminTab(tab) {
     const c = $('#adminContent');
     try {
-        switch(tab) {
-            case 'orders': {
-                const r = await fetch('/api/admin/orders/pending',{headers:authHeaders()});
-                const d = await r.json();
-                c.innerHTML = d.orders.length
-                    ? `<table class="tbl"><tr><th>订单号</th><th>用户</th><th>份数</th><th>金额</th><th>备注</th><th>操作</th></tr>${d.orders.map(o=>`<tr><td>#${o.id}</td><td>${esc(o.username)}</td><td>${o.amount}</td><td>${(o.price_cents/100).toFixed(2)}元</td><td>${esc(o.payment_note||'-')}</td><td><button class="btn btn-sm btn-ok" onclick="adminApprove(${o.id})">确认已付款</button> <button class="btn btn-sm btn-err" onclick="adminReject(${o.id})">拒绝</button></td></tr>`).join('')}</table>`
-                    : '<p style="color:var(--tx2);">暂无待审核订单</p>';
-                break;
-            }
-            case 'settings': {
-                const r = await fetch('/api/admin/settings',{headers:authHeaders()});
-                const d = await r.json();
-                c.innerHTML = Object.entries(d.settings||{}).filter(([k])=>!k.startsWith('daily_free_reset')).map(([k,v])=>`
-                    <div class="field"><label>${k}</label><input type="text" id="set_${k}" value="${esc(v)}" style="width:100%;padding:8px;border:1px solid var(--bd);border-radius:6px;"></div>
-                `).join('')+`<button class="btn btn-pri" style="margin-top:10px;width:100%;" onclick="saveSettings()">保存设置</button>`;
-                break;
-            }
-            case 'grant':
-                c.innerHTML = `<div class="field"><label>用户名</label><input type="text" id="gU" placeholder="输入用户名"></div><div class="field"><label>增加次数</label><input type="number" id="gA" value="100"></div><div class="field"><label>备注</label><input type="text" id="gN" placeholder="充值原因"></div><button class="btn btn-pri" style="width:100%;" onclick="doGrant()">确认充值</button>`;
-                break;
-            case 'announce':
-                c.innerHTML = `<div class="field"><label>标题</label><input type="text" id="aT" placeholder="公告标题"></div><div class="field"><label>内容</label><textarea id="aC" rows="4" style="width:100%;padding:8px;border:1px solid var(--bd);border-radius:6px;"></textarea></div><button class="btn btn-pri" style="width:100%;" onclick="doAnnounce()">发布公告</button>`;
-                break;
+        switch (tab) {
+            case 'orders': { const r = await fetch('/api/admin/orders/pending', { headers: authHeaders() }); const d = await r.json(); c.innerHTML = d.orders.length ? `<table class="tbl"><tr><th>订单号</th><th>用户</th><th>份数</th><th>金额</th><th>备注</th><th>操作</th></tr>${d.orders.map(o => `<tr><td>#${o.id}</td><td>${esc(o.username)}</td><td>${o.amount}</td><td>${(o.price_cents / 100).toFixed(2)}元</td><td>${esc(o.payment_note || '-')}</td><td><button class="btn btn-sm btn-ok" onclick="adminApprove(${o.id})">确认</button> <button class="btn btn-sm btn-err" onclick="adminReject(${o.id})">拒绝</button></td></tr>`).join('')}</table>` : '<p style="color:var(--tx2);">无待审核订单</p>'; break; }
+            case 'settings': { const r = await fetch('/api/admin/settings', { headers: authHeaders() }); const d = await r.json(); c.innerHTML = Object.entries(d.settings || {}).filter(([k]) => !k.startsWith('daily_free_reset')).map(([k, v]) => `<div class="field"><label>${k}</label><input type="text" id="set_${k}" value="${esc(v)}"></div>`).join('') + '<button class="btn btn-pri" style="margin-top:10px;width:100%;" onclick="saveSettings()">保存设置</button>'; break; }
+            case 'grant': c.innerHTML = `<div class="field"><label>用户名</label><input type="text" id="gU" placeholder="输入用户名"></div><div class="field"><label>输入次数（正数增加，负数减少）</label><input type="number" id="gA" value="100"></div><div class="field"><label>备注</label><input type="text" id="gN" placeholder="操作原因"></div><button class="btn btn-pri" style="width:100%;" onclick="doGrant()">确认操作</button>`; break;
+            case 'announce': c.innerHTML = `<div class="field"><label>标题</label><input type="text" id="aT" placeholder="公告标题"></div><div class="field"><label>内容</label><textarea id="aC" rows="4" placeholder="公告内容"></textarea></div><button class="btn btn-pri" style="width:100%;" onclick="doAnnounce()">发布公告</button>`; break;
         }
-    } catch(e) { c.innerHTML = '<p style="color:var(--err);">加载失败: '+e.message+'</p>'; }
+    } catch (e) { c.innerHTML = '<p style="color:var(--err);">加载失败: ' + e.message + '</p>'; }
 }
+async function adminApprove(id) { try { const r = await fetch('/api/admin/orders/approve', { method: 'POST', headers: authHeaders(), body: JSON.stringify({ orderId: id }) }); const d = await r.json(); toast(d.success ? d.message : d.error, d.success ? 's' : 'e'); if (d.success) adminTab('orders'); } catch (e) { toast('操作失败', 'e'); } }
+async function adminReject(id) { const reason = prompt('拒绝原因（可选）:'); try { const r = await fetch('/api/admin/orders/reject', { method: 'POST', headers: authHeaders(), body: JSON.stringify({ orderId: id, adminNote: reason || '' }) }); const d = await r.json(); toast(d.success ? '已拒绝' : d.error, d.success ? 'i' : 'e'); if (d.success) adminTab('orders'); } catch (e) { toast('操作失败', 'e'); } }
+async function saveSettings() { const s = {}; $$('#adminContent input[id^="set_"]').forEach(inp => { s[inp.id.replace('set_', '')] = inp.value; }); try { const r = await fetch('/api/admin/settings', { method: 'POST', headers: authHeaders(), body: JSON.stringify(s) }); toast((await r.json()).success ? '设置已保存' : '保存失败', 's'); loadPublicSettings(); } catch (e) { toast('保存失败', 'e'); } }
+async function doGrant() { const u = $('#gU').value.trim(), a = parseInt($('#gA').value) || 0, n = $('#gN').value; if (!u || a === 0) { toast('请输入用户名和有效次数', 'e'); return; } try { const r = await fetch('/api/admin/grant-credits', { method: 'POST', headers: authHeaders(), body: JSON.stringify({ username: u, amount: a, note: n }) }); const d = await r.json(); toast(d.success ? d.message : d.error, d.success ? 's' : 'e'); } catch (e) { toast('操作失败', 'e'); } }
+async function doAnnounce() { const t = $('#aT').value.trim(), c = $('#aC').value.trim(); if (!t || !c) { toast('标题和内容不能为空', 'e'); return; } try { const r = await fetch('/api/admin/announce', { method: 'POST', headers: authHeaders(), body: JSON.stringify({ title: t, content: c }) }); toast((await r.json()).success ? '公告已发布' : '发布失败', 's'); } catch (e) { toast('发布失败', 'e'); } }
 
-async function adminApprove(id) {
-    try {
-        const r = await fetch('/api/admin/orders/approve',{method:'POST',headers:authHeaders(),body:JSON.stringify({orderId:id})});
-        const d = await r.json();
-        if (d.success) { toast('已确认支付，用户已获得次数','s'); adminTab('orders'); }
-        else toast(d.error,'e');
-    } catch(e) { toast('操作失败','e'); }
-}
-async function adminReject(id) {
-    const reason = prompt('拒绝原因（可选）:');
-    try {
-        const r = await fetch('/api/admin/orders/reject',{method:'POST',headers:authHeaders(),body:JSON.stringify({orderId:id,adminNote:reason||''})});
-        const d = await r.json();
-        if (d.success) { toast('已拒绝','i'); adminTab('orders'); }
-        else toast(d.error,'e');
-    } catch(e) { toast('操作失败','e'); }
-}
-async function saveSettings() {
-    const s = {};
-    $$('#adminContent input[id^="set_"]').forEach(inp=>{ s[inp.id.replace('set_','')] = inp.value; });
-    try {
-        const r = await fetch('/api/admin/settings',{method:'POST',headers:authHeaders(),body:JSON.stringify(s)});
-        const d = await r.json();
-        toast(d.success?'设置已保存':d.error,'s');
-        loadPublicSettings();
-    } catch(e) { toast('保存失败','e'); }
-}
-async function doGrant() {
-    const u = $('#gU').value.trim(), a = $('#gA').value, n = $('#gN').value;
-    try {
-        const r = await fetch('/api/admin/grant-credits',{method:'POST',headers:authHeaders(),body:JSON.stringify({username:u,amount:parseInt(a),note:n})});
-        const d = await r.json();
-        toast(d.success?d.message:d.error,'s');
-    } catch(e) { toast('操作失败','e'); }
-}
-async function doAnnounce() {
-    const t = $('#aT').value.trim(), c = $('#aC').value.trim();
-    try {
-        const r = await fetch('/api/admin/announce',{method:'POST',headers:authHeaders(),body:JSON.stringify({title:t,content:c})});
-        const d = await r.json();
-        toast(d.success?'公告已发布':d.error,'s');
-    } catch(e) { toast('发布失败','e'); }
-}
+// ═══════════ Config Import/Export ═══════════
+function exportCfg() { const cfg = collectConfig(); const blob = new Blob([JSON.stringify({ url: $('#urlInput').value.trim(), config: cfg, exportedAt: new Date().toISOString() }, null, 2)], { type: 'application/json' }); const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'wjx-config-' + Date.now() + '.json'; a.click(); toast('配置已导出', 's'); }
+function importCfg(inp) { const f = inp.files[0]; if (!f) return; const rd = new FileReader(); rd.onload = e => { try { const d = JSON.parse(e.target.result); if (d.url) $('#urlInput').value = d.url; if (d.config) { localStorage.setItem('wjx_imp_cfg_' + btoa($('#urlInput').value).slice(0, 30), JSON.stringify(d.config)); } toast('已导入，请重新分析问卷', 's'); setTimeout(doAnalyze, 500); } catch (_) { toast('格式错误', 'e'); } }; rd.readAsText(f); inp.value = ''; }
 
-// ==================== Config Import/Export ====================
-function exportCfg() {
-    const cfg = collectConfig();
-    const blob = new Blob([JSON.stringify({url:$('#urlInput').value.trim(),config:cfg,exportedAt:new Date().toISOString()},null,2)],{type:'application/json'});
-    const a = document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='wjx-config-'+Date.now()+'.json'; a.click();
-    toast('配置已导出','s');
-}
-function importCfg(inp) {
-    const f = inp.files[0]; if (!f) return;
-    const rd = new FileReader();
-    rd.onload = e => {
-        try {
-            const d = JSON.parse(e.target.result);
-            if (d.url) $('#urlInput').value = d.url;
-            if (d.config) { localStorage.setItem('wjx_imp_cfg_'+btoa($('#urlInput').value).slice(0,30), JSON.stringify(d.config)); }
-            toast('配置已导入，请重新分析问卷','s');
-            setTimeout(doAnalyze,500);
-        } catch(_) { toast('格式错误','e'); }
-    };
-    rd.readAsText(f); inp.value='';
-}
-
-// ==================== Utilities ====================
-function esc(s) { if (!s) return ''; const d=document.createElement('div'); d.textContent=s; return d.innerHTML; }
-document.addEventListener('keydown',e=>{ if(e.ctrlKey&&e.key==='Enter'){ e.preventDefault(); if(!isRunning) doAnalyze(); } });
-$('#urlInput').addEventListener('keydown',e=>{ if(e.key==='Enter') { e.preventDefault(); doAnalyze(); } });
+// ═══════════ Utilities ═══════════
+function esc(s) { if (!s) return ''; const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+document.addEventListener('keydown', e => { if (e.ctrlKey && e.key === 'Enter') { e.preventDefault(); if (!isRunning) doAnalyze(); } });
+$('#urlInput').addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); doAnalyze(); } });
 </script>
 </body>
 </html>
