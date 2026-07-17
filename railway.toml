@@ -1,0 +1,5 @@
+# 指定 Node.js 版本
+engines:
+  node: ">=18.0.0"
+
+# Railway 会自动识别 Node.js 项目并运行 npm start
