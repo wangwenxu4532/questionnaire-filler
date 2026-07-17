@@ -701,10 +701,11 @@ async function doBuy() {
         const r = await fetch('/api/orders/create',{method:'POST',headers:authHeaders(),body:JSON.stringify({amount:a,paymentNote:n})});
         const d = await r.json();
         if (!d.success) { toast(d.error,'e'); return; }
+        // 收款码始终显示
+        $('#buyQrcode').classList.remove('hidden');
         if (d.paymentInfo?.qrcode) {
-            $('#buyQrcode').classList.remove('hidden');
             $('#buyQrImg').src = d.paymentInfo.qrcode;
-            $('#buyQrText').textContent = d.paymentInfo.instructions;
+            if (d.paymentInfo.instructions) $('#buyQrText').textContent = d.paymentInfo.instructions;
         }
         toast(`订单#${d.order.id}已生成！${d.pricing.yuan}元，实得${d.pricing.totalReceive}次（含赠送${d.pricing.bonus}次）`,'s');
         closeBuy();
