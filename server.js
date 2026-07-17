@@ -1,43 +1,336 @@
 // server.js
-// 问卷星自动填写平台 - 后端代理服务
-// 核心功能：
-//   1. 代理请求问卷星页面（解决跨域问题）
-//   2. 分析题目结构返回给前端
-//   3. 批量自动提交答卷
+// 问卷星自动填写平台 v2.0
+//   🆓 每日免费 3 次   💰 200份 = 18元
+//   🌐 随机 IP 伪装    🔐 用户注册/登录 + 管理员后台
 
 const express = require('express');
 const axios = require('axios');
 const { JSDOM } = require('jsdom');
 const path = require('path');
+const bcrypt = require('bcryptjs');
+const jwt = require('jsonwebtoken');
+const { v4: uuidv4 } = require('uuid');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+const JWT_SECRET = process.env.JWT_SECRET || 'wjx-filler-v2-' + uuidv4().slice(0, 8);
 
-// ─── 中间件 ───
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
-// 默认浏览器 UA（模拟真实浏览器）
-const DEFAULT_UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36';
+// ==================== 随机 IP 工具 ====================
 
-// ==========================================================
-//  API 1: 分析问卷 —— 获取页面、解析题目结构
-//  POST /api/analyze
-//  Body: { url: "https://www.wjx.cn/vm/xxxx.aspx" }
-// ==========================================================
-app.post('/api/analyze', async (req, res) => {
+/** 生成随机中国 IP 地址 */
+function randomChinaIP() {
+    // 真实中国 IP 段范围
+    const ranges = [
+        { start: [1, 2, 4, 0], end: [1, 2, 4, 255] },        // 1.2.4.x
+        { start: [27, 0, 0, 0], end: [27, 255, 255, 255] },   // 27.x.x.x
+        { start: [36, 0, 0, 0], end: [36, 255, 255, 255] },
+        { start: [42, 0, 0, 0], end: [42, 255, 255, 255] },
+        { start: [49, 0, 0, 0], end: [49, 255, 255, 255] },
+        { start: [58, 0, 0, 0], end: [61, 255, 255, 255] },
+        { start: [101, 0, 0, 0], end: [101, 255, 255, 255] },
+        { start: [106, 0, 0, 0], end: [106, 255, 255, 255] },
+        { start: [110, 0, 0, 0], end: [125, 255, 255, 255] },
+        { start: [171, 0, 0, 0], end: [171, 255, 255, 255] },
+        { start: [175, 0, 0, 0], end: [175, 255, 255, 255] },
+        { start: [180, 0, 0, 0], end: [183, 255, 255, 255] },
+        { start: [202, 0, 0, 0], end: [203, 255, 255, 255] },
+        { start: [210, 0, 0, 0], end: [211, 255, 255, 255] },
+        { start: [218, 0, 0, 0], end: [223, 255, 255, 255] },
+    ];
+
+    const range = ranges[Math.floor(Math.random() * ranges.length)];
+    const oct1 = range.start[0];
+    const oct2 = range.start[1] + Math.floor(Math.random() * (range.end[1] - range.start[1] + 1));
+    const oct3 = Math.floor(Math.random() * 256);
+    const oct4 = 1 + Math.floor(Math.random() * 254);
+    return `${oct1}.${oct2}.${oct3}.${oct4}`;
+}
+
+/** 保存当前 IP（用于同一份答卷内部保持 IP 一致性） */
+let currentSessionIP = randomChinaIP();
+
+/** 获取 IP（单次提交时翻新，批量时保持一定存活性） */
+function getSessionIP(refresh = true) {
+    if (refresh) currentSessionIP = randomChinaIP();
+    return currentSessionIP;
+}
+
+/** 生成随机 User-Agent */
+const UA_LIST = [
+    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36',
+    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/127.0.0.0 Safari/537.36 Edg/127.0.0.0',
+    'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:129.0) Gecko/20100101 Firefox/129.0',
+    'Mozilla/5.0 (Macintosh; Intel Mac OS X 14_6_1) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Safari/605.1.15',
+    'Mozilla/5.0 (Macintosh; Intel Mac OS X 14.6) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36',
+    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36',
+    'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36',
+];
+function randomUA() { return UA_LIST[Math.floor(Math.random() * UA_LIST.length)]; }
+
+// ==================== 数据库 ====================
+const {
+    userGet, userGetById, userCreate, userAddCredits, userConsumeCredit,
+    creditLogAdd, creditLogGetByUser,
+    orderCreate, orderGetById, orderGetByUser, orderGetPending, orderUpdateStatus,
+    announceGetActive, announceCreate,
+    settingGet, settingSet, settingGetAll,
+    dailyFreeGet, dailyFreeSet,
+    calculatePrice,
+} = require('./db');
+
+// ==================== JWT 认证中间件 ====================
+
+function authMiddleware(req, res, next) {
+    const token = req.headers.authorization?.replace('Bearer ', '');
+    if (!token) return res.status(401).json({ error: '请先登录' });
+    try {
+        req.user = jwt.verify(token, JWT_SECRET);
+        next();
+    } catch (e) {
+        return res.status(401).json({ error: '登录已过期，请重新登录' });
+    }
+}
+
+function adminMiddleware(req, res, next) {
+    if (req.user.role !== 'admin') return res.status(403).json({ error: '需要管理员权限' });
+    next();
+}
+
+// ==================== 用户 API ====================
+
+app.post('/api/auth/register', (req, res) => {
+    try {
+        const { username, password } = req.body;
+        if (!username || !password) return res.status(400).json({ error: '请输入用户名和密码' });
+        if (username.length < 3 || username.length > 20) return res.status(400).json({ error: '用户名3-20个字符' });
+        if (password.length < 6) return res.status(400).json({ error: '密码至少6位' });
+
+        const existing = userGet(username);
+        if (existing) return res.status(400).json({ error: '用户名已存在' });
+
+        const hash = bcrypt.hashSync(password, 10);
+        const user = userCreate(username, hash);
+        if (!user) return res.status(500).json({ error: '注册失败' });
+
+        // 赠送初始免费额度
+        const freeQuota = parseInt(settingGet('daily_free_quota', '3'));
+        userAddCredits(user.id, freeQuota);
+        creditLogAdd(user.id, freeQuota, 'free_daily', '新用户注册赠送');
+
+        const token = jwt.sign({ id: user.id, username, role: user.role }, JWT_SECRET, { expiresIn: '7d' });
+        res.json({ success: true, token, user: { id: user.id, username, role: user.role, credits: freeQuota } });
+    } catch (err) {
+        console.error('[注册失败]', err);
+        res.status(500).json({ error: '注册失败' });
+    }
+});
+
+app.post('/api/auth/login', (req, res) => {
+    try {
+        const { username, password } = req.body;
+        if (!username || !password) return res.status(400).json({ error: '请输入用户名和密码' });
+
+        const user = userGet(username);
+        if (!user) return res.status(400).json({ error: '用户名或密码错误' });
+
+        const valid = bcrypt.compareSync(password, user.password_hash);
+        if (!valid) return res.status(400).json({ error: '用户名或密码错误' });
+
+        // 每日免费额度
+        grantDailyFree(user.id);
+        const updated = userGetById(user.id);
+
+        const token = jwt.sign({ id: updated.id, username: updated.username, role: updated.role }, JWT_SECRET, { expiresIn: '7d' });
+        res.json({
+            success: true, token,
+            user: { id: updated.id, username: updated.username, role: updated.role, credits: updated.credits, totalUsed: updated.total_used },
+        });
+    } catch (err) {
+        console.error('[登录失败]', err);
+        res.status(500).json({ error: '登录失败' });
+    }
+});
+
+app.get('/api/auth/me', authMiddleware, (req, res) => {
+    grantDailyFree(req.user.id);
+    const user = userGetById(req.user.id);
+    if (!user) return res.status(404).json({ error: '用户不存在' });
+    res.json({ id: user.id, username: user.username, role: user.role, credits: user.credits, totalUsed: user.total_used });
+});
+
+function grantDailyFree(userId) {
+    const today = new Date().toLocaleDateString('zh-CN');
+    const last = dailyFreeGet(userId);
+    if (last !== today) {
+        const user = userGetById(userId);
+        const freeQuota = parseInt(settingGet('daily_free_quota', '3'));
+        if (user && user.credits < freeQuota) {
+            const need = freeQuota - user.credits;
+            if (need > 0) {
+                userAddCredits(userId, need);
+                creditLogAdd(userId, need, 'free_daily', '每日免费额度补充');
+            }
+        }
+        dailyFreeSet(userId, today);
+    }
+}
+
+// ==================== 订单 API ====================
+
+app.get('/api/pricing', (req, res) => {
+    const pricePer200 = parseInt(settingGet('price_per_200', '1800'));
+    const dailyFree = settingGet('daily_free_quota', '3');
+    res.json({
+        dailyFree: parseInt(dailyFree),
+        priceYuan: (pricePer200 / 100).toFixed(2),
+        minBuy: parseInt(settingGet('min_buy_amount', '200')),
+        examples: [
+            { amount: 200, yuan: '18.00' },
+            { amount: 400, yuan: '36.00' },
+            { amount: 600, yuan: '54.00' },
+            { amount: 1000, yuan: '90.00' },
+            { amount: 199, yuan: '18.00', note: '不足200按200算' },
+            { amount: 399, yuan: '18.00', note: '向下取整，399份=1×200=18元' },
+        ],
+        formula: '每200份18元，向下取整。例：350份 → floor(350/200)=1 → 18元',
+    });
+});
+
+app.post('/api/orders/create', authMiddleware, (req, res) => {
+    try {
+        const { amount, paymentNote } = req.body;
+        if (!amount || amount <= 0) return res.status(400).json({ error: '请输入有效的购买份数' });
+        const pricing = calculatePrice(amount);
+        const order = orderCreate(req.user.id, pricing.amount, pricing.priceCents, paymentNote || '');
+        console.log(`[订单] 用户${req.user.username} 创建 #${order.id}: ${pricing.amount}份 ${pricing.yuan}元`);
+        res.json({
+            success: true, order,
+            pricing,
+            paymentInfo: {
+                method: settingGet('payment_method', '微信扫码支付'),
+                qrcode: settingGet('payment_qrcode', ''),
+                instructions: settingGet('payment_instructions', ''),
+            },
+        });
+    } catch (err) {
+        console.error('[创建订单失败]', err);
+        res.status(500).json({ error: '创建订单失败' });
+    }
+});
+
+app.get('/api/orders/my', authMiddleware, (req, res) => {
+    res.json({ success: true, orders: orderGetByUser(req.user.id) });
+});
+
+app.get('/api/credits/log', authMiddleware, (req, res) => {
+    res.json({ success: true, logs: creditLogGetByUser(req.user.id) });
+});
+
+app.get('/api/public-settings', (req, res) => {
+    res.json({
+        siteName: settingGet('site_name', '问卷星自动填写平台'),
+        dailyFree: parseInt(settingGet('daily_free_quota', '3')),
+        priceYuan: (parseInt(settingGet('price_per_200', '1800')) / 100).toFixed(2),
+        minBuy: parseInt(settingGet('min_buy_amount', '200')),
+        paymentQrcode: settingGet('payment_qrcode', ''),
+        paymentInstructions: settingGet('payment_instructions', ''),
+    });
+});
+
+app.get('/api/announcements', (req, res) => {
+    const a = announceGetActive();
+    res.json({ success: true, announcement: a });
+});
+
+// ==================== 管理员 API ====================
+
+app.get('/api/admin/orders/pending', authMiddleware, adminMiddleware, (req, res) => {
+    res.json({ success: true, orders: orderGetPending() });
+});
+
+app.post('/api/admin/orders/approve', authMiddleware, adminMiddleware, (req, res) => {
+    try {
+        const { orderId, adminNote } = req.body;
+        const order = orderGetById(orderId);
+        if (!order) return res.status(404).json({ error: '订单不存在' });
+        if (order.status !== 'pending') return res.status(400).json({ error: '状态不是待支付' });
+
+        orderUpdateStatus(orderId, 'paid', req.user.id, adminNote || '');
+        userAddCredits(order.user_id, order.amount);
+        creditLogAdd(order.user_id, order.amount, 'purchase', '订单#' + orderId + ' 已支付', orderId);
+
+        console.log(`[管理员] 订单#${orderId} 审核通过，用户获得${order.amount}次`);
+        res.json({ success: true, message: '已确认支付' });
+    } catch (err) { res.status(500).json({ error: '操作失败' }); }
+});
+
+app.post('/api/admin/orders/reject', authMiddleware, adminMiddleware, (req, res) => {
+    try {
+        const { orderId, adminNote } = req.body;
+        const order = orderGetById(orderId);
+        if (!order) return res.status(404).json({ error: '订单不存在' });
+        orderUpdateStatus(orderId, 'cancelled', req.user.id, adminNote || '');
+        res.json({ success: true, message: '已拒绝' });
+    } catch (err) { res.status(500).json({ error: '操作失败' }); }
+});
+
+app.post('/api/admin/grant-credits', authMiddleware, adminMiddleware, (req, res) => {
+    try {
+        const { username, amount, note } = req.body;
+        const user = userGet(username);
+        if (!user) return res.status(404).json({ error: '用户不存在' });
+        const amt = parseInt(amount) || 0;
+        if (amt <= 0) return res.status(400).json({ error: '数量无效' });
+        userAddCredits(user.id, amt);
+        creditLogAdd(user.id, amt, 'admin_grant', note || '管理员赠送');
+        console.log(`[管理员] 手动给${username}充值${amt}次`);
+        res.json({ success: true, message: `已为${username}增加${amt}次` });
+    } catch (err) { res.status(500).json({ error: '操作失败' }); }
+});
+
+app.get('/api/admin/settings', authMiddleware, adminMiddleware, (req, res) => {
+    res.json({ success: true, settings: settingGetAll() });
+});
+
+app.post('/api/admin/settings', authMiddleware, adminMiddleware, (req, res) => {
+    try {
+        for (const [key, value] of Object.entries(req.body)) settingSet(key, String(value));
+        res.json({ success: true, message: '设置已更新' });
+    } catch (err) { res.status(500).json({ error: '保存失败' }); }
+});
+
+app.post('/api/admin/announce', authMiddleware, adminMiddleware, (req, res) => {
+    try {
+        const { title, content } = req.body;
+        if (!title || !content) return res.status(400).json({ error: '标题和内容不能为空' });
+        announceCreate(title, content);
+        res.json({ success: true, message: '公告已发布' });
+    } catch (err) { res.status(500).json({ error: '发布失败' }); }
+});
+
+// ==================== 问卷代理 API（含随机IP） ====================
+
+// 分析问卷
+app.post('/api/analyze', authMiddleware, async (req, res) => {
     try {
         const { url } = req.body;
         if (!url) return res.status(400).json({ error: '请提供问卷链接' });
 
-        console.log(`[分析] 正在获取: ${url}`);
+        const ip = getSessionIP(true);
+        const ua = randomUA();
+        console.log(`[分析] ${req.user.username} → IP:${ip}`);
+        grantDailyFree(req.user.id);
 
-        // 获取问卷页面 HTML
         const response = await axios.get(url, {
             headers: {
-                'User-Agent': DEFAULT_UA,
-                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-                'Accept-Language': 'zh-CN,zh;q=0.9,en;q=0.8',
+                'User-Agent': ua,
+                'Accept': 'text/html,application/xhtml+xml,*/*;q=0.8',
+                'Accept-Language': 'zh-CN,zh;q=0.9',
+                'X-Forwarded-For': ip,
+                'X-Real-IP': ip,
                 'Referer': 'https://www.wjx.cn/',
             },
             timeout: 15000,
@@ -46,605 +339,325 @@ app.post('/api/analyze', async (req, res) => {
 
         const html = response.data;
         const doc = new JSDOM(html).window.document;
-
-        // ── 提取关键信息 ──
         const title = doc.querySelector('title')?.textContent || '未知问卷';
         const questions = parseQuestions(doc);
-
-        // 提取提交URL（可能在 HTML 中或从页面URL推断）
         const submitUrl = extractSubmitUrl(doc, url);
-        // 提取隐藏字段
         const hiddenFields = extractHiddenFields(doc);
 
-        console.log(`[分析] 检测到 ${questions.length} 道题目, 提交地址: ${submitUrl}`);
+        console.log(`[分析] 共${questions.length}题`);
 
-        res.json({
-            success: true,
-            title,
-            questionCount: questions.length,
-            questions,
-            submitUrl,
-            hiddenFields,
-            rawHtml: html,  // 原始HTML（供前端解析）
-        });
-
+        res.json({ success: true, title, questionCount: questions.length, questions, submitUrl, hiddenFields });
     } catch (err) {
         console.error('[分析失败]', err.message);
-        if (err.response) {
-            // 返回状态码但内容是问卷页面的情况
-            const html = err.response.data;
-            if (typeof html === 'string' && html.includes('div_question')) {
-                const doc = new JSDOM(html).window.document;
-                const questions = parseQuestions(doc);
-                const submitUrl = extractSubmitUrl(doc, url);
-                const hiddenFields = extractHiddenFields(doc);
-                console.log(`[分析-备用] 从错误响应中解析出 ${questions.length} 道题目`);
-                return res.json({
-                    success: true,
-                    title: doc.querySelector('title')?.textContent || '问卷',
-                    questionCount: questions.length,
-                    questions,
-                    submitUrl,
-                    hiddenFields,
-                    rawHtml: html,
-                });
-            }
+        if (err.response && typeof err.response.data === 'string' && err.response.data.includes('div_question')) {
+            const doc = new JSDOM(err.response.data).window.document;
+            const questions = parseQuestions(doc);
+            return res.json({ success: true, title: doc.querySelector('title')?.textContent || '', questionCount: questions.length, questions, submitUrl: extractSubmitUrl(doc, req.body.url), hiddenFields: extractHiddenFields(doc) });
         }
-        res.status(500).json({
-            success: false,
-            error: `获取问卷失败: ${err.message}`,
-            hint: '请检查链接是否正确，或确认问卷是否可以公开访问',
-        });
+        res.status(500).json({ success: false, error: err.message });
     }
 });
 
-// ==========================================================
-//  API 2: 提交问卷 —— 代理提交（解决跨域 + IP限制）
-//  POST /api/submit
-//  Body: { submitUrl, formData, referer }
-// ==========================================================
-app.post('/api/submit', async (req, res) => {
-    try {
-        const { submitUrl, formData, referer } = req.body;
-        if (!submitUrl || !formData) {
-            return res.status(400).json({ error: '缺少必要参数' });
-        }
-
-        console.log(`[提交] 目标: ${submitUrl}`);
-
-        // 用 URLSearchParams 构建 form-urlencoded 数据
-        const params = new URLSearchParams();
-        for (const [key, value] of Object.entries(formData)) {
-            if (Array.isArray(value)) {
-                value.forEach(v => params.append(key, v));
-            } else {
-                params.append(key, value);
-            }
-        }
-
-        const response = await axios.post(submitUrl, params.toString(), {
-            headers: {
-                'User-Agent': DEFAULT_UA,
-                'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
-                'Accept': '*/*',
-                'Accept-Language': 'zh-CN,zh;q=0.9',
-                'Origin': new URL(submitUrl).origin,
-                'Referer': referer || submitUrl.replace(/\/[^/]+\.aspx.*$/, '/'),
-                'X-Requested-With': 'XMLHttpRequest',
-            },
-            timeout: 15000,
-            maxRedirects: 3,
-        });
-
-        console.log(`[提交] 状态: ${response.status}, 响应长度: ${JSON.stringify(response.data).length}`);
-
-        res.json({
-            success: true,
-            status: response.status,
-            data: response.data,
-        });
-
-    } catch (err) {
-        console.error('[提交失败]', err.message);
-        if (err.response) {
-            console.error('  状态码:', err.response.status);
-            console.error('  响应:', typeof err.response.data === 'string' ? err.response.data.slice(0, 300) : JSON.stringify(err.response.data).slice(0, 300));
-        }
-
-        res.status(500).json({
-            success: false,
-            error: `提交失败: ${err.message}`,
-            status: err.response?.status,
-        });
-    }
-});
-
-// ==========================================================
-//  API 3: 批量提交
-//  POST /api/batch-submit
-//  Body: { submitUrl, formDataTemplate, count, delay, referer, questions }
-// ==========================================================
-app.post('/api/batch-submit', async (req, res) => {
+// 批量提交（含随机IP）
+app.post('/api/batch-submit', authMiddleware, async (req, res) => {
     try {
         const { submitUrl, formDataTemplate, count, delay, referer, questions, customConfig, answerMode } = req.body;
-        if (!submitUrl || !formDataTemplate) {
-            return res.status(400).json({ error: '缺少必要参数' });
+        if (!submitUrl || !formDataTemplate) return res.status(400).json({ error: '缺少必要参数' });
+
+        grantDailyFree(req.user.id);
+        const user = userGetById(req.user.id);
+        const totalCount = Math.min(count || 1, 500);
+
+        if (user.credits < totalCount) {
+            return res.status(402).json({
+                error: '次数不足', credits: user.credits, required: totalCount,
+                hint: `剩余 ${user.credits} 次，需要 ${totalCount} 次。请购买更多次数。`,
+            });
         }
 
-        const totalCount = Math.min(count || 1, 500);  // 单次最多500
-        const delayMs = Math.max(delay || 500, 200);    // 最小200ms间隔
-        console.log(`[批量] 计划提交 ${totalCount} 份, 间隔 ${delayMs}ms, 模式: ${answerMode || 'random'}`);
+        if (!userConsumeCredit(user.id, totalCount)) {
+            return res.status(402).json({ error: '次数扣减失败' });
+        }
+        creditLogAdd(user.id, -totalCount, 'consume', `批量提交${totalCount}份`);
 
-        // 使用 SSE 流式返回进度
+        const delayMs = Math.max(delay || 500, 200);
+        console.log(`[批量] ${user.username} 提交${totalCount}份, 余额:${userGetById(user.id).credits}`);
+
         res.setHeader('Content-Type', 'text/event-stream');
         res.setHeader('Cache-Control', 'no-cache');
         res.setHeader('Connection', 'keep-alive');
         res.setHeader('X-Accel-Buffering', 'no');
 
-        let successCount = 0;
-        let failCount = 0;
+        let successCount = 0, failCount = 0;
 
         for (let i = 0; i < totalCount; i++) {
+            // 🌐 每N份换一个IP（N随机5-15）
+            const ipRefreshInterval = 5 + Math.floor(Math.random() * 11);
+            const ip = (i % ipRefreshInterval === 0) ? getSessionIP(true) : getSessionIP(false);
+            const ua = randomUA();
+
             try {
-                // 根据模式生成答案
                 let formData;
                 if (answerMode === 'custom' && customConfig) {
-                    // 纯自定义模式：完全使用用户配置，不随机
                     formData = applyCustomConfig(formDataTemplate, customConfig, questions);
                 } else if (answerMode === 'mixed' && customConfig) {
-                    // 混合模式：自定义优先，未设定则随机
-                    formData = generateRandomAnswers(formDataTemplate, questions); // 先生成随机
-                    formData = mergeCustomConfig(formData, customConfig, questions); // 再用自定义覆盖
+                    formData = generateRandomAnswers(formDataTemplate, questions);
+                    formData = mergeCustomConfig(formData, customConfig, questions);
                 } else {
-                    // 随机模式
                     formData = generateRandomAnswers(formDataTemplate, questions);
                 }
 
                 const params = new URLSearchParams();
                 for (const [key, value] of Object.entries(formData)) {
-                    if (Array.isArray(value)) {
-                        value.forEach(v => params.append(key, v));
-                    } else {
-                        params.append(key, value);
-                    }
+                    if (Array.isArray(value)) value.forEach(v => params.append(key, v));
+                    else params.append(key, value);
                 }
 
-                const response = await axios.post(submitUrl, params.toString(), {
+                const resp = await axios.post(submitUrl, params.toString(), {
                     headers: {
-                        'User-Agent': DEFAULT_UA,
+                        'User-Agent': ua,
                         'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
                         'Accept': '*/*',
                         'Accept-Language': 'zh-CN,zh;q=0.9',
                         'Origin': new URL(submitUrl).origin,
                         'Referer': referer || submitUrl,
                         'X-Requested-With': 'XMLHttpRequest',
+                        'X-Forwarded-For': ip,
+                        'X-Real-IP': ip,
+                        'Client-IP': ip,
                     },
                     timeout: 15000,
                     maxRedirects: 3,
                 });
 
-                // 判断是否提交成功
-                const respData = typeof response.data === 'string' ? response.data : JSON.stringify(response.data);
-                const isSuccess = response.status === 200 &&
-                    (respData.includes('成功') || respData.includes('提交') || respData.includes('谢谢') || respData.includes('感谢') || respData.includes('success') || respData.includes('ok') || respData.includes('true'));
+                const rd = typeof resp.data === 'string' ? resp.data : JSON.stringify(resp.data);
+                if ((resp.status === 200 && rd.includes('成功')) || resp.status === 200 && rd.length < 500) successCount++;
+                else failCount++;
 
-                if (isSuccess || response.status === 200) {
-                    successCount++;
-                } else {
-                    failCount++;
-                }
-
-                // 发送进度事件
                 res.write(`data: ${JSON.stringify({
-                    type: 'progress',
-                    current: i + 1,
-                    total: totalCount,
-                    success: successCount,
-                    fail: failCount,
+                    type: 'progress', current: i + 1, total: totalCount,
+                    success: successCount, fail: failCount,
                     percent: Math.round(((i + 1) / totalCount) * 100),
+                    ip: ip,
                 })}\n\n`);
 
-            } catch (submitErr) {
+            } catch (err) {
                 failCount++;
                 res.write(`data: ${JSON.stringify({
-                    type: 'progress',
-                    current: i + 1,
-                    total: totalCount,
-                    success: successCount,
-                    fail: failCount,
+                    type: 'progress', current: i + 1, total: totalCount,
+                    success: successCount, fail: failCount,
                     percent: Math.round(((i + 1) / totalCount) * 100),
-                    lastError: submitErr.message,
+                    lastError: err.message, ip: ip,
                 })}\n\n`);
             }
-
-            // 间隔延迟
-            if (i < totalCount - 1) {
-                await sleep(delayMs);
-            }
+            if (i < totalCount - 1) await sleep(delayMs);
         }
 
-        // 完成事件
-        res.write(`data: ${JSON.stringify({
-            type: 'complete',
-            total: totalCount,
-            success: successCount,
-            fail: failCount,
-        })}\n\n`);
-
-        console.log(`[批量完成] ${successCount}/${totalCount} 成功, ${failCount} 失败`);
+        const updated = userGetById(req.user.id);
+        res.write(`data: ${JSON.stringify({ type: 'complete', total: totalCount, success: successCount, fail: failCount })}\n\n`);
+        res.write(`data: ${JSON.stringify({ type: 'credits', credits: updated.credits })}\n\n`);
+        console.log(`[批量完成] ${user.username}: ${successCount}/${totalCount} 成功, 余额:${updated.credits}`);
         res.end();
 
     } catch (err) {
-        console.error('[批量失败]', err.message);
-        if (!res.headersSent) {
-            res.status(500).json({ error: err.message });
-        } else {
-            res.write(`data: ${JSON.stringify({ type: 'error', error: err.message })}\n\n`);
-            res.end();
-        }
+        console.error('[批量失败]', err);
+        if (!res.headersSent) res.status(500).json({ error: err.message });
+        else { res.write(`data: ${JSON.stringify({ type: 'error', error: err.message })}\n\n`); res.end(); }
     }
 });
 
-// ==========================================================
-//  API 4: 健康检查
-// ==========================================================
-app.get('/api/health', (req, res) => {
-    res.json({ status: 'ok', uptime: process.uptime() });
+// 单次提交
+app.post('/api/submit', authMiddleware, async (req, res) => {
+    try {
+        const { submitUrl, formData, referer } = req.body;
+        if (!submitUrl || !formData) return res.status(400).json({ error: '缺少必要参数' });
+
+        grantDailyFree(req.user.id);
+        const user = userGetById(req.user.id);
+        if (user.credits < 1) return res.status(402).json({ error: '次数不足', credits: 0 });
+
+        userConsumeCredit(user.id, 1);
+        creditLogAdd(user.id, -1, 'consume', '单次提交');
+
+        const ip = getSessionIP(true);
+        const ua = randomUA();
+        const params = new URLSearchParams();
+        for (const [k, v] of Object.entries(formData)) {
+            if (Array.isArray(v)) v.forEach(x => params.append(k, x));
+            else params.append(k, v);
+        }
+
+        const resp = await axios.post(submitUrl, params.toString(), {
+            headers: {
+                'User-Agent': ua,
+                'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
+                'Accept': '*/*',
+                'Accept-Language': 'zh-CN,zh;q=0.9',
+                'Origin': new URL(submitUrl).origin,
+                'Referer': referer || submitUrl,
+                'X-Requested-With': 'XMLHttpRequest',
+                'X-Forwarded-For': ip,
+                'X-Real-IP': ip,
+                'Client-IP': ip,
+            },
+            timeout: 15000,
+            maxRedirects: 3,
+        });
+
+        res.json({ success: true, status: resp.status, ip });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
 });
 
-// ==========================================================
-//  核心函数
-// ==========================================================
+app.get('/api/health', (req, res) => {
+    res.json({ status: 'ok', uptime: process.uptime(), ip: getSessionIP(false) });
+});
 
-/**
- * 解析问卷页面，提取所有题目
- */
+// ==================== 问卷解析函数 ====================
+
 function parseQuestions(doc) {
     const questions = [];
     const containers = findQuestionContainers(doc);
-
     containers.forEach((container, idx) => {
         const type = detectType(container);
         if (type === 'unknown') return;
-
         const title = extractTitle(container);
         if (!title || title.length < 2) return;
-
-        const options = extractOptions(container, type);
-        const fieldName = extractFieldName(container, type);
-
-        questions.push({
-            index: idx + 1,
-            type,
-            title: title.slice(0, 120),
-            options,
-            fieldName,  // 表单字段名（如 q1_1, q2[]）
-        });
+        questions.push({ index: idx + 1, type, title: title.slice(0, 120), options: extractOptions(container, type), fieldName: extractFieldName(container, type) });
     });
-
     return questions;
 }
 
-/**
- * 寻找题目容器
- * 问卷星经典结构: div.div_question, fieldset
- */
 function findQuestionContainers(doc) {
-    const selectors = [
-        '.div_question',
-        'fieldset',
-        '.question',
-        '.field',
-        '[id^="divquestion"]',
-        '.topic',
-        '.ui-field-contain',
-    ];
-    for (const sel of selectors) {
+    for (const sel of ['.div_question', 'fieldset', '.question', '.field', '[id^="divquestion"]', '.topic', '.ui-field-contain']) {
         const els = doc.querySelectorAll(sel);
         if (els.length >= 2) return Array.from(els);
     }
     return [];
 }
 
-/**
- * 检测题型
- */
-function detectType(container) {
-    const html = container.outerHTML || container.innerHTML;
-
-    if (html.includes('sortrank') || html.includes('sort-item')) return 'sort';
-    if (html.includes('rate_off') || html.includes('rate_on')) return 'star';
-    if (html.includes('jqCheckbox') || container.querySelector('input[type="checkbox"]')) return 'checkbox';
-    if (html.includes('jqRadio') || container.querySelector('input[type="radio"]')) return 'radio';
-    if (container.querySelector('select')) return 'select';
-    if (container.querySelector('textarea')) return 'textarea';
-    if (container.querySelector('input[type="text"], input:not([type])')) return 'text';
-
+function detectType(c) {
+    const h = (c.outerHTML || '');
+    if (h.includes('sortrank')) return 'sort';
+    if (h.includes('rate_off') || h.includes('rate_on')) return 'star';
+    if (h.includes('jqCheckbox') || c.querySelector('input[type="checkbox"]')) return 'checkbox';
+    if (h.includes('jqRadio') || c.querySelector('input[type="radio"]')) return 'radio';
+    if (c.querySelector('select')) return 'select';
+    if (c.querySelector('textarea')) return 'textarea';
+    if (c.querySelector('input[type="text"], input:not([type])')) return 'text';
     return 'unknown';
 }
 
-/**
- * 提取题目标题
- */
-function extractTitle(container) {
-    const titleSels = ['.div_title_question', 'legend', '.field-label', 'label:first-of-type', '.topic-title', 'h1', 'h2', 'h3'];
-    for (const sel of titleSels) {
-        const el = container.querySelector(sel);
-        if (el && el.textContent.trim().length > 1) {
-            return el.textContent.replace(/\s+/g, ' ').trim();
-        }
+function extractTitle(c) {
+    for (const s of ['.div_title_question', 'legend', '.field-label', 'label:first-of-type']) {
+        const e = c.querySelector(s);
+        if (e && e.textContent.trim().length > 1) return e.textContent.replace(/\s+/g, ' ').trim();
     }
-    return container.textContent.replace(/\s+/g, ' ').trim().slice(0, 100);
+    return c.textContent.replace(/\s+/g, ' ').trim().slice(0, 100);
 }
 
-/**
- * 提取选项列表
- */
-function extractOptions(container, type) {
+function extractOptions(c, t) {
     const opts = [];
-
-    if (type === 'radio') {
-        container.querySelectorAll('a.jqRadio').forEach((a, i) => {
-            opts.push({ index: i, text: a.textContent.trim().slice(0, 60), val: a.getAttribute('val') || String(i + 1) });
-        });
-        if (opts.length === 0) {
-            container.querySelectorAll('input[type="radio"]').forEach((inp, i) => {
-                const label = inp.closest('label') || inp.parentElement;
-                opts.push({ index: i, text: (label?.textContent || inp.value || '').replace(/\s+/g, ' ').trim().slice(0, 60), val: inp.value || String(i + 1) });
-            });
-        }
+    if (t === 'radio') {
+        c.querySelectorAll('a.jqRadio').forEach((a, i) => opts.push({ index: i, text: a.textContent.trim().slice(0, 60), val: a.getAttribute('val') || String(i + 1) }));
+        if (!opts.length) c.querySelectorAll('input[type="radio"]').forEach((inp, i) => { const l = inp.closest('label') || inp.parentElement; opts.push({ index: i, text: (l?.textContent || '').replace(/\s+/g, ' ').trim().slice(0, 60), val: inp.value || String(i + 1) }); });
     }
-
-    if (type === 'checkbox') {
-        container.querySelectorAll('a.jqCheckbox').forEach((a, i) => {
-            opts.push({ index: i, text: a.textContent.trim().slice(0, 60), val: a.getAttribute('val') || String(i + 1) });
-        });
-        if (opts.length === 0) {
-            container.querySelectorAll('input[type="checkbox"]').forEach((inp, i) => {
-                const label = inp.closest('label') || inp.parentElement;
-                opts.push({ index: i, text: (label?.textContent || inp.value || '').replace(/\s+/g, ' ').trim().slice(0, 60), val: inp.value || String(i + 1) });
-            });
-        }
+    if (t === 'checkbox') {
+        c.querySelectorAll('a.jqCheckbox').forEach((a, i) => opts.push({ index: i, text: a.textContent.trim().slice(0, 60), val: a.getAttribute('val') || String(i + 1) }));
+        if (!opts.length) c.querySelectorAll('input[type="checkbox"]').forEach((inp, i) => { const l = inp.closest('label') || inp.parentElement; opts.push({ index: i, text: (l?.textContent || '').replace(/\s+/g, ' ').trim().slice(0, 60), val: inp.value || String(i + 1) }); });
     }
-
     return opts;
 }
 
-/**
- * 提取表单字段名（name属性）
- */
-function extractFieldName(container, type) {
-    if (type === 'radio') {
-        const r = container.querySelector('input[type="radio"]');
-        return r?.name || r?.getAttribute('name') || '';
-    }
-    if (type === 'checkbox') {
-        const c = container.querySelector('input[type="checkbox"]');
-        return c?.name || c?.getAttribute('name') || '';
-    }
-    if (type === 'text' || type === 'textarea') {
-        const inp = container.querySelector('input[type="text"], input:not([type]), textarea');
-        return inp?.name || inp?.getAttribute('name') || '';
-    }
+function extractFieldName(c, t) {
+    if (t === 'radio') { const r = c.querySelector('input[type="radio"]'); return r?.name || ''; }
+    if (t === 'checkbox') { const r = c.querySelector('input[type="checkbox"]'); return r?.name || ''; }
+    if (t === 'text' || t === 'textarea') { const r = c.querySelector('input[type="text"], input:not([type]), textarea'); return r?.name || ''; }
     return '';
 }
 
-/**
- * 提取提交URL
- */
 function extractSubmitUrl(doc, pageUrl) {
-    // 尝试从页面中寻找
-    const formAction = doc.querySelector('form')?.getAttribute('action');
-    if (formAction) {
-        return new URL(formAction, pageUrl).href;
-    }
-    // 推断：将 /vm/xxx.aspx 替换为相关提交地址
-    // 问卷星的提交通常是同一个URL或 ajaxpost 地址
-    const baseUrl = pageUrl.replace(/\?.*$/, '');
-    return baseUrl;  // 多数情况就是当前页面URL
+    const a = doc.querySelector('form')?.getAttribute('action');
+    return a ? new URL(a, pageUrl).href : pageUrl.replace(/\?.*$/, '');
 }
 
-/**
- * 提取隐藏表单字段（如 __VIEWSTATE 等）
- */
 function extractHiddenFields(doc) {
-    const fields = {};
-    doc.querySelectorAll('input[type="hidden"]').forEach(inp => {
-        const name = inp.getAttribute('name');
-        const value = inp.getAttribute('value');
-        if (name && value) fields[name] = value;
-    });
-    return fields;
+    const f = {};
+    doc.querySelectorAll('input[type="hidden"]').forEach(inp => { const n = inp.getAttribute('name'), v = inp.getAttribute('value'); if (n && v) f[n] = v; });
+    return f;
 }
 
-/**
- * 根据模板和题目信息生成随机答案
- * 每调用一次生成一份全新的随机答卷
- */
 function generateRandomAnswers(template, questions) {
-    const data = { ...template };  // 复制隐藏字段
-
-    if (!questions || questions.length === 0) {
-        // 没有题目信息，直接微调模板
-        return randomizeTemplate(template);
-    }
-
-    questions.forEach(q => {
-        const fieldName = q.fieldName;
-        if (!fieldName) return;
-
-        switch (q.type) {
-            case 'radio':
-                if (q.options.length > 0) {
-                    const pick = q.options[Math.floor(Math.random() * q.options.length)];
-                    data[fieldName] = pick.val;
-                }
-                break;
-
-            case 'checkbox': {
-                // 随机选1-3个
-                const count = 1 + Math.floor(Math.random() * Math.min(3, q.options.length));
-                const shuffled = [...q.options].sort(() => Math.random() - 0.5);
-                const picked = shuffled.slice(0, count);
-                // 多选的name通常是 q2[]
-                const cleanName = fieldName.replace('[]', '');
-                if (fieldName.includes('[]')) {
-                    data[cleanName] = picked.map(p => p.val);
-                } else {
-                    picked.forEach((p, i) => {
-                        data[`${cleanName}[${i}]`] = p.val;
-                    });
-                }
-                break;
-            }
-
-            case 'text':
-            case 'textarea':
-                const texts = [
-                    '产品整体体验不错，希望能继续优化用户体验。',
-                    '服务态度很好，功能齐全，会推荐给朋友使用。',
-                    '使用体验良好，界面简洁美观，操作方便。',
-                    '性价比不错，以后还会继续购买使用。',
-                    '质量可靠，整体满意，值得推荐。',
-                    '还不错，有些细节可以再优化一下就更好了。',
-                ];
-                data[fieldName] = texts[Math.floor(Math.random() * texts.length)];
-                break;
-
-            case 'select':
-                if (q.options.length > 0) {
-                    const pick = q.options[Math.floor(Math.random() * q.options.length)];
-                    data[fieldName] = pick.val;
-                }
-                break;
-
-            case 'star':
-                data[fieldName] = String(3 + Math.floor(Math.random() * 3)); // 3-5星
-                break;
-
-            default:
-                break;
-        }
-    });
-
-    return data;
-}
-
-/**
- * 在没有题目信息时，随机微调模板数据
- */
-function randomizeTemplate(template) {
     const data = { ...template };
-    for (const [key, value] of Object.entries(data)) {
-        // 单选题随机换
-        if (typeof value === 'string' && !key.startsWith('__') && isNaN(Number(value))) {
-            // 保持原样，因为不知道选项范围
-        }
-    }
-    return data;
-}
-
-/**
- * 应用纯自定义配置（不随机）
- */
-function applyCustomConfig(template, customConfig, questions) {
-    const data = { ...template };
-    if (!questions || questions.length === 0) return data;
-
+    if (!questions) return data;
     questions.forEach(q => {
-        const fieldName = q.fieldName;
-        if (!fieldName) return;
-        const cfg = customConfig[fieldName];
-        if (!cfg) return;  // 没有自定义配置则跳过（保持模板值）
-
+        const fn = q.fieldName; if (!fn) return;
         switch (q.type) {
-            case 'radio':
-            case 'select':
-                data[fieldName] = cfg.val || '';
-                break;
+            case 'radio': if (q.options.length) data[fn] = q.options[Math.floor(Math.random() * q.options.length)].val; break;
             case 'checkbox': {
-                const cleanName = fieldName.replace('[]', '');
-                if (fieldName.includes('[]')) {
-                    data[cleanName] = cfg.vals || [];
-                } else {
-                    (cfg.vals || []).forEach((v, vi) => {
-                        data[`${cleanName}[${vi}]`] = v;
-                    });
-                }
+                const cnt = 1 + Math.floor(Math.random() * Math.min(3, q.options.length));
+                const p = [...q.options].sort(() => Math.random() - 0.5).slice(0, cnt);
+                const cl = fn.replace('[]', '');
+                fn.includes('[]') ? (data[cl] = p.map(x => x.val)) : p.forEach((x, i) => { data[`${cl}[${i}]`] = x.val; });
                 break;
             }
-            case 'text':
-            case 'textarea':
-                data[fieldName] = cfg.text || '';
-                break;
-            case 'star':
-                data[fieldName] = cfg.val || '4';
-                break;
+            case 'text': case 'textarea': data[fn] = ['不错，希望优化。','服务好，会推荐。','体验良好。','性价比高。','质量可靠。'][Math.floor(Math.random() * 5)]; break;
+            case 'select': if (q.options.length) data[fn] = q.options[Math.floor(Math.random() * q.options.length)].val; break;
+            case 'star': data[fn] = String(3 + Math.floor(Math.random() * 3)); break;
         }
     });
-
     return data;
 }
 
-/**
- * 混合模式：先随机生成，再用自定义配置覆盖指定字段
- */
-function mergeCustomConfig(randomData, customConfig, questions) {
-    const data = { ...randomData };
-    if (!questions || questions.length === 0) return data;
-
-    questions.forEach(q => {
-        const fieldName = q.fieldName;
-        if (!fieldName) return;
-        const cfg = customConfig[fieldName];
-        if (!cfg) return;
-
+function applyCustomConfig(t, cfg, qs) {
+    const d = { ...t };
+    if (!qs) return d;
+    qs.forEach(q => {
+        const fn = q.fieldName; if (!fn) return;
+        const c = cfg[fn]; if (!c) return;
         switch (q.type) {
-            case 'radio':
-            case 'select':
-                data[fieldName] = cfg.val || data[fieldName];
-                break;
-            case 'checkbox': {
-                const cleanName = fieldName.replace('[]', '');
-                if (cfg.vals && cfg.vals.length > 0) {
-                    if (fieldName.includes('[]')) {
-                        data[cleanName] = cfg.vals;
-                    } else {
-                        cfg.vals.forEach((v, vi) => {
-                            data[`${cleanName}[${vi}]`] = v;
-                        });
-                    }
-                }
-                break;
-            }
-            case 'text':
-            case 'textarea':
-                if (cfg.text) data[fieldName] = cfg.text;
-                break;
-            case 'star':
-                if (cfg.val) data[fieldName] = cfg.val;
-                break;
+            case 'radio': case 'select': d[fn] = c.val || ''; break;
+            case 'checkbox': { const cl = fn.replace('[]', ''); fn.includes('[]') ? (d[cl] = c.vals || []) : (c.vals || []).forEach((v, i) => { d[`${cl}[${i}]`] = v; }); break; }
+            case 'text': case 'textarea': d[fn] = c.text || ''; break;
+            case 'star': d[fn] = c.val || '4'; break;
         }
     });
-
-    return data;
+    return d;
 }
 
-function sleep(ms) {
-    return new Promise(r => setTimeout(r, ms));
+function mergeCustomConfig(rd, cfg, qs) {
+    const d = { ...rd };
+    if (!qs) return d;
+    qs.forEach(q => {
+        const fn = q.fieldName; if (!fn) return;
+        const c = cfg[fn]; if (!c) return;
+        switch (q.type) {
+            case 'radio': case 'select': if (c.val) d[fn] = c.val; break;
+            case 'checkbox': if (c.vals?.length) { const cl = fn.replace('[]', ''); fn.includes('[]') ? (d[cl] = c.vals) : c.vals.forEach((v, i) => { d[`${cl}[${i}]`] = v; }); } break;
+            case 'text': case 'textarea': if (c.text) d[fn] = c.text; break;
+            case 'star': if (c.val) d[fn] = c.val; break;
+        }
+    });
+    return d;
 }
 
-// ─── 启动服务器 ───
+function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+// ==================== 启动 ====================
 app.listen(PORT, () => {
+    const fq = settingGet('daily_free_quota', '3');
+    const py = (parseInt(settingGet('price_per_200', '1800')) / 100).toFixed(2);
     console.log(`
-╔═══════════════════════════════════════════╗
-║       📋 问卷星自动填写平台 v1.0         ║
-║                                           ║
-║  本地地址: http://localhost:${PORT}          ║
-║  分析接口: POST /api/analyze              ║
-║  提交接口: POST /api/submit               ║
-║  批量接口: POST /api/batch-submit         ║
-║                                           ║
-╚═══════════════════════════════════════════╝
+╔═══════════════════════════════════════════════╗
+║     📋 问卷星自动填写平台 v2.0                 ║
+║                                               ║
+║  🌐 本地: http://localhost:${PORT}                ║
+║  👤 管理员: admin / admin123                  ║
+║  🆓 每日免费: ${fq} 次                         ║
+║  💰 价格: ${py}元 / 200份                      ║
+║  🌐 随机IP: 已启用 (真实中国IP段)             ║
+║  💾 数据: JSON 文件存储 (data/ 目录)          ║
+╚═══════════════════════════════════════════════╝
 `);
 });

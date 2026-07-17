@@ -6,1017 +6,743 @@
     <title>📋 问卷星自动填写平台</title>
     <style>
         :root {
-            --primary: #4361ee;
-            --primary-light: #eef0ff;
-            --primary-dark: #3a56d4;
-            --success: #10b981;
-            --danger: #ef4444;
-            --warning: #f59e0b;
-            --bg: #f1f5f9;
-            --card: #ffffff;
-            --text: #1e293b;
-            --text-secondary: #64748b;
-            --border: #e2e8f0;
-            --radius: 10px;
-            --shadow: 0 1px 3px rgba(0,0,0,.06), 0 1px 2px rgba(0,0,0,.04);
-            --shadow-lg: 0 10px 40px rgba(0,0,0,.1);
+            --pri: #4f46e5; --pri-d: #4338ca; --pri-l: #eef2ff;
+            --ok: #10b981; --err: #ef4444; --warn: #f59e0b;
+            --bg: #f1f5f9; --card: #fff; --txt: #1e293b;
+            --tx2: #64748b; --bd: #e2e8f0; --rd: 10px;
+            --sh: 0 1px 3px rgba(0,0,0,.06);
         }
-
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", "Noto Sans SC", sans-serif;
-            background: var(--bg);
-            color: var(--text);
-            min-height: 100vh;
-            line-height: 1.6;
+            font-family: -apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei","Noto Sans SC",sans-serif;
+            background: var(--bg); color: var(--txt); min-height: 100vh; line-height: 1.6;
         }
 
-        /* ====== 头部导航 ====== */
+        /* Header */
         .header {
-            background: var(--card);
-            border-bottom: 1px solid var(--border);
-            padding: 0 24px;
-            height: 60px;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            box-shadow: var(--shadow);
-            position: sticky;
-            top: 0;
-            z-index: 100;
+            background: var(--card); border-bottom: 1px solid var(--bd);
+            padding: 0 24px; height: 60px; display: flex; align-items: center;
+            justify-content: space-between; box-shadow: var(--sh); position: sticky; top: 0; z-index: 900;
         }
-        .header .logo {
-            font-size: 18px;
-            font-weight: 700;
-            color: var(--primary);
-            display: flex;
-            align-items: center;
-            gap: 8px;
+        .header .logo { font-size: 18px; font-weight: 700; color: var(--pri); }
+        .header .user-area { display: flex; align-items: center; gap: 12px; }
+        .header .user-area .badge {
+            background: var(--pri-l); color: var(--pri); padding: 4px 12px;
+            border-radius: 20px; font-size: 12px; font-weight: 600;
         }
-        .header .logo span { font-size: 22px; }
-        .header .links { display: flex; gap: 16px; font-size: 13px; }
-        .header .links a {
-            color: var(--text-secondary); text-decoration: none; transition: color .2s;
-        }
-        .header .links a:hover { color: var(--primary); }
-
-        /* ====== 主布局 ====== */
-        .container {
-            max-width: 1100px;
-            margin: 0 auto;
-            padding: 24px 20px 60px;
-        }
-
-        /* ====== 卡片通用 ====== */
-        .card {
-            background: var(--card);
-            border-radius: var(--radius);
-            box-shadow: var(--shadow);
-            padding: 24px;
-            margin-bottom: 20px;
-            border: 1px solid var(--border);
-        }
-        .card-header {
-            font-size: 16px;
-            font-weight: 700;
-            margin-bottom: 16px;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-
-        /* ====== Step 1: 输入链接 ====== */
-        .input-row {
-            display: flex;
-            gap: 12px;
-        }
-        .input-row input {
-            flex: 1;
-            padding: 12px 16px;
-            border: 2px solid var(--border);
-            border-radius: var(--radius);
-            font-size: 15px;
-            outline: none;
-            transition: border-color .25s;
-        }
-        .input-row input:focus { border-color: var(--primary); }
-        .input-row input::placeholder { color: #c0c8d4; }
-
+        .header .user-area .badge.admin { background: #fef3c7; color: #92400e; }
         .btn {
-            padding: 10px 22px;
-            border: none;
-            border-radius: var(--radius);
-            font-size: 14px;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all .2s;
-            display: inline-flex;
-            align-items: center;
-            gap: 6px;
-            white-space: nowrap;
-            font-family: inherit;
+            padding: 8px 16px; border: none; border-radius: 8px; font-size: 13px; font-weight: 600;
+            cursor: pointer; transition: all .15s; font-family: inherit; white-space: nowrap;
         }
-        .btn:disabled {
-            opacity: .55; cursor: not-allowed; pointer-events: none;
-        }
-        .btn-primary {
-            background: var(--primary); color: #fff;
-        }
-        .btn-primary:hover { background: var(--primary-dark); transform: translateY(-1px); box-shadow: 0 4px 12px rgba(67,97,238,.3); }
-        .btn-success {
-            background: var(--success); color: #fff;
-        }
-        .btn-success:hover { filter: brightness(1.1); transform: translateY(-1px); }
-        .btn-danger {
-            background: var(--danger); color: #fff;
-        }
-        .btn-outline {
-            background: #fff; color: var(--primary); border: 1.5px solid var(--primary);
-        }
-        .btn-outline:hover { background: var(--primary-light); }
-        .btn-lg { padding: 14px 32px; font-size: 16px; }
-        .btn-sm { padding: 6px 14px; font-size: 12px; }
+        .btn-sm { padding: 5px 12px; font-size: 12px; }
+        .btn-pri { background: var(--pri); color: #fff; }
+        .btn-pri:hover { background: var(--pri-d); }
+        .btn-ok { background: var(--ok); color: #fff; }
+        .btn-err { background: var(--err); color: #fff; }
+        .btn-ghost { background: #fff; color: var(--pri); border: 1.5px solid var(--pri); }
+        .btn:disabled { opacity: .5; pointer-events: none; }
 
-        .url-examples {
-            margin-top: 10px;
-            font-size: 12px;
-            color: var(--text-secondary);
-        }
-        .url-examples code {
-            background: #f1f5f9;
-            padding: 2px 6px;
-            border-radius: 3px;
-            font-size: 11px;
-            cursor: pointer;
-            transition: background .2s;
-        }
-        .url-examples code:hover { background: #e2e8f0; color: var(--primary); }
+        /* Main */
+        .main { max-width: 1100px; margin: 0 auto; padding: 24px 20px 60px; }
 
-        /* ====== Step 2: 题目列表 ====== */
-        .survey-info {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            padding: 14px 18px;
-            background: var(--primary-light);
-            border-radius: var(--radius);
-            margin-bottom: 16px;
-        }
-        .survey-info .s-icon { font-size: 24px; }
-        .survey-info .s-title { font-weight: 600; }
-        .survey-info .s-count { font-size: 13px; color: var(--text-secondary); margin-left: auto; }
+        /* Card */
+        .card { background: var(--card); border-radius: var(--rd); box-shadow: var(--sh); border: 1px solid var(--bd); padding: 24px; margin-bottom: 20px; }
+        .card-h { font-size: 16px; font-weight: 700; margin-bottom: 16px; }
 
-        .q-list { display: flex; flex-direction: column; gap: 12px; }
+        /* Auth */
+        .auth-box { max-width: 420px; margin: 60px auto; }
+        .auth-box .tab-row { display: flex; margin-bottom: 20px; }
+        .auth-box .tab-row button {
+            flex: 1; padding: 10px; border: none; background: #f1f5f9; cursor: pointer;
+            font-size: 14px; font-weight: 600; transition: .2s;
+        }
+        .auth-box .tab-row button:first-child { border-radius: 8px 0 0 8px; }
+        .auth-box .tab-row button:last-child { border-radius: 0 8px 8px 0; }
+        .auth-box .tab-row button.active { background: var(--pri); color: #fff; }
+        .auth-box .field { margin-bottom: 14px; }
+        .auth-box .field label { display: block; font-size: 13px; font-weight: 600; color: var(--tx2); margin-bottom: 5px; }
+        .auth-box .field input {
+            width: 100%; padding: 11px 14px; border: 1.5px solid var(--bd); border-radius: 8px; font-size: 14px; outline: none; transition: .2s;
+        }
+        .auth-box .field input:focus { border-color: var(--pri); }
 
-        .q-item {
-            border: 1px solid var(--border);
-            border-radius: 8px;
-            padding: 14px 16px;
-            transition: border-color .2s;
-            background: #fafbfc;
+        /* URL input */
+        .url-row { display: flex; gap: 12px; }
+        .url-row input {
+            flex: 1; padding: 12px 16px; border: 2px solid var(--bd); border-radius: var(--rd);
+            font-size: 15px; outline: none; transition: .25s;
         }
-        .q-item:hover { border-color: #bcc7d6; }
-        .q-item .q-header {
-            display: flex;
-            align-items: flex-start;
-            gap: 10px;
-            margin-bottom: 8px;
-        }
-        .q-item .q-num {
-            background: var(--primary);
-            color: #fff;
-            width: 24px; height: 24px;
-            border-radius: 50%;
-            font-size: 12px;
-            font-weight: 700;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            flex-shrink: 0;
-            margin-top: 1px;
-        }
-        .q-item .q-type-badge {
-            display: inline-block;
-            padding: 2px 8px;
-            border-radius: 4px;
-            font-size: 10px;
-            font-weight: 600;
-            flex-shrink: 0;
-            margin-top: 2px;
-        }
-        .q-item .q-type-badge.radio { background: #dbeafe; color: #2563eb; }
-        .q-item .q-type-badge.checkbox { background: #fef3c7; color: #d97706; }
-        .q-item .q-type-badge.text { background: #fce7f3; color: #db2777; }
-        .q-item .q-type-badge.star { background: #fef9c3; color: #ca8a04; }
-        .q-item .q-type-badge.select { background: #e0e7ff; color: #4f46e5; }
-        .q-item .q-type-badge.matrix { background: #f3e8ff; color: #7c3aed; }
+        .url-row input:focus { border-color: var(--pri); }
 
-        .q-item .q-title {
-            flex: 1;
-            font-size: 14px;
-            color: var(--text);
-            line-height: 1.5;
+        /* Stats bar */
+        .stats-row {
+            display: grid; grid-template-columns: repeat(4,1fr); gap: 12px; margin-bottom: 20px;
         }
-        .q-item .q-control {
-            margin-left: 34px;
+        @media (max-width:600px) { .stats-row { grid-template-columns: repeat(2,1fr); } }
+        .stat-card {
+            background: var(--card); border-radius: var(--rd); box-shadow: var(--sh);
+            border: 1px solid var(--bd); padding: 16px; text-align: center;
         }
-        .q-item .q-control select {
-            width: 100%;
-            padding: 8px 10px;
-            border: 1px solid var(--border);
-            border-radius: 6px;
-            font-size: 13px;
-            background: #fff;
-            font-family: inherit;
-        }
-        .q-item .q-control textarea,
-        .q-item .q-control input[type="text"] {
-            width: 100%;
-            padding: 8px 12px;
-            border: 1px solid var(--border);
-            border-radius: 6px;
-            font-size: 13px;
-            font-family: inherit;
-            resize: vertical;
-        }
-        .q-item .q-opts-info {
-            font-size: 11px;
-            color: var(--text-secondary);
-            margin-top: 6px;
-        }
+        .stat-card .val { font-size: 28px; font-weight: 700; color: var(--pri); }
+        .stat-card .lbl { font-size: 12px; color: var(--tx2); margin-top: 2px; }
 
-        /* ====== Step 3: 任务配置 ====== */
-        .config-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-            gap: 16px;
-        }
-        .config-item label {
-            display: block;
-            font-size: 13px;
-            font-weight: 600;
-            color: var(--text-secondary);
-            margin-bottom: 6px;
-        }
-        .config-item input {
-            width: 100%;
-            padding: 10px 14px;
-            border: 1.5px solid var(--border);
-            border-radius: 8px;
-            font-size: 14px;
-            outline: none;
-            transition: border-color .2s;
-        }
-        .config-item input:focus { border-color: var(--primary); }
+        /* Survey info */
+        .survey-bar { display: flex; align-items: center; gap: 12px; padding: 14px 18px; background: var(--pri-l); border-radius: var(--rd); margin-bottom: 16px; }
+        .survey-bar .s-name { font-weight: 600; flex: 1; }
+        .survey-bar .s-num { font-size: 13px; color: var(--tx2); }
 
-        /* ====== 进度面板 ====== */
-        .progress-overlay {
-            background: var(--card);
-            border-radius: var(--radius);
-            box-shadow: var(--shadow-lg);
-            border: 1px solid var(--border);
-            padding: 24px;
-            margin-bottom: 20px;
-            display: none;
-        }
-        .progress-overlay.active { display: block; }
+        /* Question item */
+        .q-list { display: flex; flex-direction: column; gap: 10px; }
+        .q-item { border: 1px solid var(--bd); border-radius: 8px; padding: 12px 14px; background: #fafbfc; }
+        .q-item .q-top { display: flex; align-items: flex-start; gap: 8px; margin-bottom: 8px; }
+        .q-item .q-num { background: var(--pri); color: #fff; min-width: 22px; height: 22px; border-radius: 50%; font-size: 11px; font-weight: 700; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+        .q-tag { display: inline-block; padding: 1px 7px; border-radius: 4px; font-size: 10px; font-weight: 600; flex-shrink: 0; }
+        .q-tag.rd { background: #dbeafe; color: #2563eb; }  .q-tag.ch { background: #fef3c7; color: #d97706; }
+        .q-tag.tx { background: #fce7f3; color: #db2777; }   .q-tag.st { background: #fef9c3; color: #ca8a04; }
+        .q-title { flex: 1; font-size: 13px; }
+        .q-ctrl { margin-left: 30px; }
+        .q-ctrl select, .q-ctrl textarea { width: 100%; padding: 7px 10px; border: 1px solid var(--bd); border-radius: 6px; font-size: 13px; font-family: inherit; }
+        .q-ctrl textarea { resize: vertical; min-height: 40px; }
 
-        .progress-bar-outer {
-            height: 10px;
-            background: #e2e8f0;
-            border-radius: 5px;
-            margin: 16px 0;
-            overflow: hidden;
-        }
-        .progress-bar-inner {
-            height: 100%;
-            background: linear-gradient(90deg, var(--primary), #7c3aed);
-            border-radius: 5px;
-            transition: width .3s;
-            width: 0%;
-        }
-        .progress-stats {
-            display: flex;
-            gap: 24px;
-            justify-content: center;
-            font-size: 14px;
-        }
-        .progress-stats .stat {
-            text-align: center;
-        }
-        .progress-stats .stat .val {
-            font-size: 28px;
-            font-weight: 700;
-        }
-        .progress-stats .stat .val.ok { color: var(--success); }
-        .progress-stats .stat .val.bad { color: var(--danger); }
-        .progress-stats .stat .lbl { font-size: 12px; color: var(--text-secondary); }
+        /* Config */
+        .config-row { display: grid; grid-template-columns: repeat(auto-fit,minmax(160px,1fr)); gap: 14px; }
+        .config-row label { display: block; font-size: 12px; font-weight: 600; color: var(--tx2); margin-bottom: 4px; }
+        .config-row input, .config-row select { width: 100%; padding: 9px 12px; border: 1.5px solid var(--bd); border-radius: 8px; font-size: 14px; outline: none; }
 
-        .log-stream {
-            background: #1e293b;
-            color: #cbd5e1;
-            border-radius: 8px;
-            padding: 12px 16px;
-            font-family: "Cascadia Code", "Fira Code", "Consolas", "Source Code Pro", monospace;
-            font-size: 12px;
-            max-height: 200px;
-            overflow-y: auto;
-            line-height: 1.7;
-            margin-top: 12px;
-        }
-        .log-stream .ts { color: #64748b; margin-right: 8px; }
-        .log-stream .ok { color: #34d399; }
-        .log-stream .bad { color: #f87171; }
-        .log-stream .info { color: #60a5fa; }
+        /* Progress */
+        .prog { background: var(--card); border-radius: var(--rd); box-shadow: 0 4px 20px rgba(0,0,0,.12); border: 1px solid var(--bd); padding: 24px; margin-bottom: 20px; }
+        .prog-bar { height: 10px; background: #e2e8f0; border-radius: 5px; margin: 14px 0; overflow: hidden; }
+        .prog-bar div { height: 100%; background: linear-gradient(90deg,var(--pri),#7c3aed); border-radius: 5px; transition: .3s; width: 0%; }
+        .prog-s { display: flex; gap: 20px; justify-content: center; font-size: 14px; text-align: center; }
+        .prog-s .pv { font-size: 26px; font-weight: 700; }
+        .prog-s .pv.g { color: var(--ok); }  .prog-s .pv.r { color: var(--err); }
+        .log-box { background: #1e293b; color: #cbd5e1; border-radius: 8px; padding: 12px; font-family: "Cascadia Code","Fira Code",Consolas,monospace; font-size: 12px; max-height: 200px; overflow-y: auto; line-height: 1.7; margin-top: 12px; white-space: pre-wrap; }
+        .log-box .ts { color: #64748b; } .log-box .ok { color: #34d399; } .log-box .err { color: #f87171; } .log-box .info { color: #60a5fa; }
 
-        /* ====== Toast ====== */
-        .toast-container {
-            position: fixed; top: 20px; left: 50%;
-            transform: translateX(-50%);
-            z-index: 9999;
-            display: flex;
-            flex-direction: column;
-            gap: 8px;
-            pointer-events: none;
+        /* Modal */
+        .modal-overlay {
+            position: fixed; inset: 0; z-index: 9999; background: rgba(0,0,0,.45);
+            display: flex; align-items: center; justify-content: center; display: none;
+        }
+        .modal-overlay.show { display: flex; }
+        .modal-box { background: #fff; border-radius: 14px; padding: 28px; width: 460px; max-width: 95vw; max-height: 90vh; overflow-y: auto; box-shadow: 0 20px 50px rgba(0,0,0,.2); }
+        .modal-box h3 { margin-bottom: 16px; }
+        .modal-box .close { float: right; background: none; border: none; font-size: 24px; cursor: pointer; color: #999; }
+
+        /* Table (admin) */
+        .tbl { width: 100%; border-collapse: collapse; font-size: 13px; }
+        .tbl th, .tbl td { padding: 10px 12px; border-bottom: 1px solid var(--bd); text-align: left; }
+        .tbl th { background: #f8fafc; font-weight: 600; color: var(--tx2); font-size: 12px; }
+
+        /* Toast */
+        .toast-c {
+            position: fixed; top: 16px; left: 50%; transform: translateX(-50%); z-index: 99999;
+            display: flex; flex-direction: column; gap: 6px; pointer-events: none;
         }
         .toast {
-            padding: 12px 24px;
-            border-radius: 8px;
-            color: #fff;
-            font-size: 14px;
-            font-weight: 500;
-            box-shadow: 0 4px 16px rgba(0,0,0,.2);
-            animation: toastIn .3s ease-out;
-            pointer-events: auto;
+            padding: 10px 22px; border-radius: 8px; color: #fff; font-size: 13px; font-weight: 500;
+            box-shadow: 0 4px 14px rgba(0,0,0,.2); animation: tIn .3s;
         }
-        .toast.error { background: var(--danger); }
-        .toast.success { background: var(--success); }
-        .toast.info { background: var(--primary); }
-        @keyframes toastIn {
-            from { opacity: 0; transform: translateY(-10px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
+        .toast.e { background: var(--err); } .toast.s { background: var(--ok); } .toast.i { background: var(--pri); }
+        @keyframes tIn { from { opacity: 0; transform: translateY(-8px); } to { opacity: 1; transform: translateY(0); } }
 
-        /* ====== 空状态 ====== */
-        .empty-state {
-            text-align: center;
-            padding: 40px 20px;
-            color: var(--text-secondary);
-        }
-        .empty-state .icon { font-size: 48px; margin-bottom: 12px; }
-
-        /* ====== 页脚 ====== */
-        .footer {
-            text-align: center;
-            padding: 20px;
-            font-size: 12px;
-            color: var(--text-secondary);
-        }
-        .footer a { color: var(--primary); text-decoration: none; }
-
-        /* ====== 响应式 ====== */
-        @media (max-width: 640px) {
-            .container { padding: 12px 10px 40px; }
-            .card { padding: 16px; }
-            .input-row { flex-direction: column; }
-            .config-grid { grid-template-columns: 1fr 1fr; }
-            .header .links { display: none; }
-        }
-
-        /* ====== 加载动画 ====== */
-        .spinner {
-            width: 18px; height: 18px;
-            border: 2.5px solid #fff;
-            border-top-color: transparent;
-            border-radius: 50%;
-            animation: spin .6s linear infinite;
-            display: inline-block;
-        }
-        @keyframes spin { to { transform: rotate(360deg); } }
+        .hidden { display: none !important; }
     </style>
 </head>
 <body>
 
-    <!-- ====== 顶部 ====== -->
-    <div class="header">
-        <div class="logo"><span>📋</span> 问卷星自动填写平台</div>
-        <div class="links">
-            <a href="#how">📖 使用说明</a>
-            <span style="color:#c0c8d4;">v1.0</span>
+<div class="header">
+    <span class="logo">📋 <span id="hdTitle">问卷星自动填写平台</span></span>
+    <div class="user-area">
+        <span id="hdCredits" class="badge hidden">🪙 <span id="hdCreditsVal">0</span> 次</span>
+        <span id="hdAdmin" class="badge admin hidden">🛡️ 管理员</span>
+        <span id="hdUser" class="hidden" style="font-size:13px;color:var(--tx2);">👤 <b id="hdUserVal">-</b></span>
+        <button id="hdLoginBtn" class="btn btn-pri btn-sm" onclick="showAuth()">登录</button>
+        <button id="hdLogoutBtn" class="btn btn-ghost btn-sm hidden" onclick="logout()">退出</button>
+    </div>
+</div>
+
+<div class="toast-c" id="toasts"></div>
+
+<!-- Auth Modal -->
+<div class="modal-overlay" id="authModal">
+    <div class="modal-box">
+        <button class="close" onclick="hideAuth()">×</button>
+        <div class="tab-row">
+            <button id="tabLogin" class="active" onclick="switchTab('login')">登录</button>
+            <button id="tabRegister" onclick="switchTab('register')">注册</button>
+        </div>
+        <form id="authForm" onsubmit="doAuth(event)">
+            <div class="field"><label>用户名</label><input type="text" id="authUser" placeholder="3-20个字符" minlength="3" maxlength="20" required></div>
+            <div class="field"><label>密码</label><input type="password" id="authPass" placeholder="至少6位" minlength="6" required></div>
+            <button type="submit" class="btn btn-pri" style="width:100%;padding:12px;" id="authSubmitBtn">登 录</button>
+        </form>
+    </div>
+</div>
+
+<!-- Purchase Modal -->
+<div class="modal-overlay" id="buyModal">
+    <div class="modal-box">
+        <button class="close" onclick="closeBuy()">×</button>
+        <h3>💰 购买提交次数</h3>
+        <div style="background:#fef9c3;padding:10px;border-radius:8px;margin-bottom:16px;font-size:13px;color:#92400e;">
+            📐 <b>计价规则：每200份 = <span id="buyPricePer">18</span>元，向下取整</b><br>
+            例如：200份=18元 | 399份=18元 | 400份=36元 | 800份=72元
+        </div>
+        <div class="field"><label>购买份数</label><input type="number" id="buyAmount" value="200" min="200" step="100" oninput="calcBuy()"></div>
+        <div class="field"><label>应付金额</label><input type="text" id="buyPrice" readonly style="font-size:20px;font-weight:700;color:var(--err);"></div>
+        <div class="field"><label>支付备注（付款后填写你的订单号便于确认）</label><input type="text" id="buyNote" placeholder="例如：微信转账单号后6位"></div>
+        <div id="buyQrcode" class="hidden" style="text-align:center;margin:12px 0;">
+            <img id="buyQrImg" style="max-width:220px;border-radius:8px;" alt="收款码">
+            <p style="font-size:12px;color:var(--tx2);margin-top:6px;" id="buyQrText"></p>
+        </div>
+        <button class="btn btn-pri" style="width:100%;padding:12px;" onclick="doBuy()">📝 创建订单（提交后等待管理员确认）</button>
+        <div style="font-size:12px;color:var(--tx2);margin-top:8px;text-align:center;">
+            付款后请在「我的订单」中查看审核状态
+        </div>
+    </div>
+</div>
+
+<!-- Admin Modal -->
+<div class="modal-overlay" id="adminModal">
+    <div class="modal-box" style="width:700px;">
+        <button class="close" onclick="closeAdmin()">×</button>
+        <h3>🛡️ 管理员后台</h3>
+        <div style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap;">
+            <button class="btn btn-sm btn-pri" onclick="adminTab('orders')">待审核订单</button>
+            <button class="btn btn-sm btn-ghost" onclick="adminTab('settings')">系统设置</button>
+            <button class="btn btn-sm btn-ghost" onclick="adminTab('grant')">手动充值</button>
+            <button class="btn btn-sm btn-ghost" onclick="adminTab('announce')">发布公告</button>
+        </div>
+        <div id="adminContent"></div>
+    </div>
+</div>
+
+<!-- My Orders Modal -->
+<div class="modal-overlay" id="ordersModal">
+    <div class="modal-box" style="width:550px;">
+        <button class="close" onclick="closeOrders()">×</button>
+        <h3>📋 我的订单</h3>
+        <div id="ordersContent"><p style="color:var(--tx2);">加载中...</p></div>
+    </div>
+</div>
+
+<!-- Main Content -->
+<div class="main" id="mainApp">
+
+    <!-- Stats -->
+    <div class="stats-row">
+        <div class="stat-card"><div class="val" id="stCredits">0</div><div class="lbl">🪙 剩余次数</div></div>
+        <div class="stat-card"><div class="val" id="stUsed">0</div><div class="lbl">📊 累计使用</div></div>
+        <div class="stat-card"><div class="val" id="stFree">3</div><div class="lbl">🎁 每日免费</div></div>
+        <div class="stat-card">
+            <button class="btn btn-pri" onclick="openBuy()">💰 购买次数</button>
+            <button class="btn btn-ghost btn-sm" style="margin-top:4px;" onclick="openOrders()">📋 我的订单</button>
         </div>
     </div>
 
-    <!-- Toast -->
-    <div class="toast-container" id="toasts"></div>
-
-    <!-- ====== 主内容 ====== -->
-    <div class="container">
-
-        <!-- ──── Step 1: 输入问卷链接 ──── -->
-        <div class="card">
-            <div class="card-header">🔗 Step 1 — 输入问卷星链接</div>
-            <div class="input-row">
-                <input
-                    type="text"
-                    id="urlInput"
-                    placeholder="粘贴问卷星链接，例如: https://www.wjx.cn/vm/xxxxxx.aspx"
-                    autocomplete="url"
-                >
-                <button class="btn btn-primary btn-lg" id="btnAnalyze" onclick="analyzeSurvey()">
-                    🔍 分析问卷
-                </button>
-            </div>
-            <div class="url-examples" style="margin-top:12px;">
-                试试示例：
-                <code onclick="fillExample(this)">https://www.wjx.cn/vm/PpSukPx.aspx</code>
-            </div>
+    <!-- Step 1: URL -->
+    <div class="card">
+        <div class="card-h">🔗 Step 1 — 输入问卷星链接</div>
+        <div class="url-row">
+            <input type="text" id="urlInput" placeholder="粘贴问卷星链接: https://www.wjx.cn/vm/xxxx.aspx">
+            <button class="btn btn-pri" id="btnAnalyze" onclick="doAnalyze()" style="padding:12px 24px;font-size:15px;">🔍 分析问卷</button>
         </div>
+        <div style="margin-top:8px;font-size:12px;color:var(--tx2);">按 Ctrl+Enter 快速分析</div>
+    </div>
 
-        <!-- ──── Step 2: 题目列表 & 自定义答案 ──── -->
-        <div class="card" id="step2Card" style="display:none;">
-            <div class="card-header">📝 Step 2 — 题目列表 & 自定义答案</div>
-            <div class="survey-info" id="surveyInfo" style="display:none;"></div>
-            <div class="q-list" id="qList"></div>
-            <div class="empty-state" id="qEmpty">
-                <div class="icon">📭</div>
-                <p>输入链接后点击「分析问卷」即可看到题目</p>
-            </div>
+    <!-- Step 2: Questions (hidden initially) -->
+    <div class="card hidden" id="step2">
+        <div class="card-h">📝 Step 2 — 题目列表</div>
+        <div class="survey-bar hidden" id="surveyBar">
+            <span>📋</span><span class="s-name" id="sName">-</span><span class="s-num" id="sCount">0题</span>
         </div>
+        <div class="q-list" id="qList"></div>
+    </div>
 
-        <!-- ──── Step 3: 任务配置 ──── -->
-        <div class="card" id="step3Card" style="display:none;">
-            <div class="card-header">⚙️ Step 3 — 配置提交任务</div>
-            <div class="config-grid">
-                <div class="config-item">
-                    <label>📦 提交份数</label>
-                    <input type="number" id="submitCount" value="10" min="1" max="500" placeholder="1-500">
-                </div>
-                <div class="config-item">
-                    <label>⏱ 间隔时间 (毫秒)</label>
-                    <input type="number" id="submitDelay" value="800" min="200" max="10000" placeholder="200-10000">
-                </div>
-                <div class="config-item">
-                    <label>🎲 答案模式</label>
-                    <select id="answerMode" style="width:100%;padding:10px 14px;border:1.5px solid var(--border);border-radius:8px;font-size:14px;outline:none;">
-                        <option value="random">随机选择（每题随机选）</option>
-                        <option value="custom">自定义（使用下方设定）</option>
-                        <option value="mixed">混合（自定义优先，未设定则随机）</option>
-                    </select>
-                </div>
-            </div>
-            <div style="margin-top:16px;display:flex;gap:12px;flex-wrap:wrap;">
-                <button class="btn btn-success btn-lg" id="btnStart" onclick="startBatch()">
-                    🚀 开始批量提交
-                </button>
-                <button class="btn btn-danger btn-lg" id="btnStop" onclick="stopBatch()" disabled>
-                    ⏹ 停止
-                </button>
-                <button class="btn btn-outline" onclick="exportConfig()">
-                    💾 导出配置
-                </button>
-                <button class="btn btn-outline" onclick="document.getElementById('importFile').click()">
-                    📥 导入配置
-                </button>
-                <input type="file" id="importFile" accept=".json" style="display:none;" onchange="importConfig(this)">
-            </div>
+    <!-- Step 3: Config (hidden initially) -->
+    <div class="card hidden" id="step3">
+        <div class="card-h">⚙️ Step 3 — 配置提交</div>
+        <div class="config-row">
+            <div><label>📦 提交份数</label><input type="number" id="cnt" value="10" min="1" max="500"></div>
+            <div><label>⏱ 间隔(ms)</label><input type="number" id="dly" value="800" min="200" max="10000"></div>
+            <div><label>🎲 答案模式</label><select id="mode"><option value="random">随机选择</option><option value="custom">自定义</option><option value="mixed">混合(自定义优先)</option></select></div>
+            <div><label>🌐 IP模式</label><select id="ipMode"><option value="rotate">每5-15份换IP</option><option value="each">每份都换IP</option><option value="fixed">固定IP</option></select></div>
         </div>
-
-        <!-- ──── 进度面板 ──── -->
-        <div class="progress-overlay" id="progressPanel">
-            <div class="card-header">📊 任务进度</div>
-            <div class="progress-bar-outer">
-                <div class="progress-bar-inner" id="progressBar"></div>
-            </div>
-            <div class="progress-stats">
-                <div class="stat">
-                    <div class="val" id="statTotal">0</div>
-                    <div class="lbl">总计划</div>
-                </div>
-                <div class="stat">
-                    <div class="val ok" id="statOk">0</div>
-                    <div class="lbl">✅ 成功</div>
-                </div>
-                <div class="stat">
-                    <div class="val bad" id="statFail">0</div>
-                    <div class="lbl">❌ 失败</div>
-                </div>
-                <div class="stat">
-                    <div class="val" id="statPct" style="color:var(--primary);">0%</div>
-                    <div class="lbl">进度</div>
-                </div>
-            </div>
-            <div class="log-stream" id="logStream">
-                <span class="info">📋 等待任务开始...</span>
-            </div>
+        <div style="margin-top:14px;display:flex;gap:10px;flex-wrap:wrap;">
+            <button class="btn btn-ok" id="btnGo" onclick="doBatch()" style="padding:12px 28px;font-size:15px;">🚀 开始批量提交</button>
+            <button class="btn btn-err" id="btnStop" onclick="stopBatch()" disabled>⏹ 停止</button>
+            <button class="btn btn-ghost" onclick="exportCfg()">💾 导出配置</button>
+            <button class="btn btn-ghost" onclick="document.getElementById('impF').click()">📥 导入配置</button>
+            <input type="file" id="impF" accept=".json" style="display:none;" onchange="importCfg(this)">
         </div>
-
-        <!-- ──── 使用说明 ──── -->
-        <div class="card" id="how">
-            <div class="card-header">📖 使用说明</div>
-            <ol style="padding-left:20px;color:var(--text-secondary);font-size:14px;line-height:2;">
-                <li>在 <b>Step 1</b> 粘贴问卷星的问卷链接（如 <code>https://www.wjx.cn/vm/xxxx.aspx</code>）</li>
-                <li>点击「分析问卷」，系统会自动解析问卷中的所有题目</li>
-                <li>在 <b>Step 2</b> 查看每道题，可以<strong>自定义答案</strong>（选特定选项、填特定文字）</li>
-                <li>在 <b>Step 3</b> 设置要提交的份数、提交间隔、答案模式</li>
-                <li>点击「开始批量提交」，实时查看进度</li>
-                <li>支持<strong>导出/导入配置</strong>，下次直接加载配置不用重新设置</li>
-            </ol>
-            <div style="margin-top:12px;padding:12px;background:#fef9c3;border-radius:8px;font-size:13px;color:#92400e;">
-                ⚠️ <strong>免责声明：</strong>本工具仅供学习前端与后端技术之用。请勿用于刷票、刷数据等违规行为。使用者需自行承担由此产生的一切责任。
-            </div>
+        <div style="margin-top:8px;font-size:12px;color:var(--err);">
+            ⚠️ 每提交一份消耗 <b>1 次</b>，请确保次数足够！
         </div>
     </div>
 
-    <!-- 页脚 -->
-    <div class="footer">
-        Questionnaire Auto Filler — for educational purposes only — <a href="https://github.com" target="_blank">GitHub</a>
+    <!-- Progress -->
+    <div class="prog hidden" id="progPanel">
+        <div class="card-h">📊 任务进度</div>
+        <div class="prog-bar"><div id="progBar"></div></div>
+        <div class="prog-s">
+            <div><div class="pv" id="pT">0</div><div>总计划</div></div>
+            <div><div class="pv g" id="pS">0</div><div>✅ 成功</div></div>
+            <div><div class="pv r" id="pF">0</div><div>❌ 失败</div></div>
+            <div><div class="pv" id="pP" style="color:var(--pri);">0%</div><div>进度</div></div>
+            <div><div style="font-size:12px;color:var(--tx2);" id="pIP">-</div><div>🌐 IP</div></div>
+        </div>
+        <div class="log-box" id="logBox"><span class="info">等待开始...</span></div>
     </div>
 
-    <script>
-        // ============================================================
-        //  全局状态
-        // ============================================================
-        let surveyData = null;        // 问卷分析结果
-        let isRunning = false;
-        let abortController = null;
+</div>
 
-        // DOM 缓存
-        const $ = (s) => document.querySelector(s);
-        const $$ = (s) => document.querySelectorAll(s);
+<script>
+// ==================== Global State ====================
+let token = localStorage.getItem('wjx_token') || '';
+let user = null;
+let surveyData = null;
+let isRunning = false;
+let abortCtrl = null;
+let authMode = 'login';
 
-        // ============================================================
-        //  Toast
-        // ============================================================
-        function showToast(msg, type = 'info') {
-            const container = $('#toasts');
-            const div = document.createElement('div');
-            div.className = `toast ${type}`;
-            div.textContent = msg;
-            container.appendChild(div);
-            setTimeout(() => {
-                div.style.opacity = '0';
-                div.style.transition = 'opacity .3s';
-                setTimeout(() => div.remove(), 300);
-            }, 3000);
-        }
+const $ = s => document.querySelector(s);
+const $$ = s => document.querySelectorAll(s);
 
-        // ============================================================
-        //  示例填充
-        // ============================================================
-        function fillExample(el) {
-            $('#urlInput').value = el.textContent.trim();
-        }
+// ==================== Init ====================
+async function init() {
+    if (token) {
+        try {
+            const r = await fetch('/api/auth/me', { headers: authHeaders() });
+            if (r.ok) {
+                user = await r.json();
+                updateUI();
+            } else { token = ''; localStorage.removeItem('wjx_token'); }
+        } catch(e) { /* offline */ }
+    }
+    loadPublicSettings();
+}
+init();
 
-        // ============================================================
-        //  Step 1: 分析问卷
-        // ============================================================
-        async function analyzeSurvey() {
-            const url = $('#urlInput').value.trim();
-            if (!url) {
-                showToast('请先输入问卷链接', 'error');
-                return;
+function authHeaders() {
+    return { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' };
+}
+
+// ==================== Toast ====================
+function toast(m, t='i') {
+    const c = $('#toasts');
+    const d = document.createElement('div');
+    d.className = 'toast ' + (t==='e'?'e':t==='s'?'s':'i');
+    d.textContent = m;
+    c.appendChild(d);
+    setTimeout(() => { d.style.opacity='0'; d.style.transition='opacity .3s'; setTimeout(()=>d.remove(),300); }, 3000);
+}
+
+// ==================== Auth ====================
+function showAuth() { $('#authModal').classList.add('show'); }
+function hideAuth() { $('#authModal').classList.remove('show'); }
+function switchTab(t) {
+    authMode = t;
+    $('#tabLogin').classList.toggle('active', t==='login');
+    $('#tabRegister').classList.toggle('active', t==='register');
+    $('#authSubmitBtn').textContent = t==='login' ? '登 录' : '注 册';
+}
+
+async function doAuth(e) {
+    e.preventDefault();
+    const username = $('#authUser').value.trim();
+    const password = $('#authPass').value;
+    const ep = authMode === 'login' ? '/api/auth/login' : '/api/auth/register';
+    try {
+        const r = await fetch(ep, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({username,password}) });
+        const d = await r.json();
+        if (!r.ok) { toast(d.error||'失败','e'); return; }
+        token = d.token; user = d.user;
+        localStorage.setItem('wjx_token', token);
+        updateUI();
+        hideAuth();
+        toast(authMode==='login'?`欢迎回来，${user.username}！`:'注册成功！','s');
+    } catch(e) { toast('网络错误','e'); }
+}
+
+function logout() {
+    token = ''; user = null;
+    localStorage.removeItem('wjx_token');
+    updateUI();
+    toast('已退出登录');
+}
+
+// ==================== UI Update ====================
+function updateUI() {
+    const loggedIn = !!user;
+    $('#hdLoginBtn').classList.toggle('hidden', loggedIn);
+    $('#hdLogoutBtn').classList.toggle('hidden', !loggedIn);
+    $('#hdCredits').classList.toggle('hidden', !loggedIn);
+    $('#hdUser').classList.toggle('hidden', !loggedIn);
+    $('#hdAdmin').classList.toggle('hidden', !loggedIn || user?.role !== 'admin');
+
+    if (user) {
+        $('#hdUserVal').textContent = user.username;
+        $('#hdCreditsVal').textContent = user.credits;
+        $('#stCredits').textContent = user.credits;
+        $('#stUsed').textContent = user.totalUsed || 0;
+        $('#stFree').textContent = publicSettings?.dailyFree || 3;
+        if (user.role === 'admin') {
+            if (!$('#adminBtn')) {
+                const b = document.createElement('button');
+                b.id='adminBtn'; b.className='btn btn-sm'; b.style.cssText='background:#fef3c7;color:#92400e;';
+                b.textContent='🛡️ 管理';
+                b.onclick = openAdmin;
+                document.querySelector('.header .user-area').prepend(b);
             }
-            if (!url.includes('wjx.cn') && !url.includes('wjx.com') && !url.includes('wjx.top') && !url.includes('sojump.com')) {
-                showToast('请输入有效的问卷星链接', 'error');
-                return;
-            }
-
-            const btn = $('#btnAnalyze');
-            btn.disabled = true;
-            btn.innerHTML = '<span class="spinner"></span> 分析中...';
-            $('#step2Card').style.display = 'block';
-
-            try {
-                const resp = await fetch('/api/analyze', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ url }),
-                });
-
-                const data = await resp.json();
-                if (!data.success) {
-                    showToast(data.error || '分析失败', 'error');
-                    $('#surveyInfo').style.display = 'none';
-                    $('#qList').innerHTML = '';
-                    $('#qEmpty').style.display = 'block';
-                    return;
-                }
-
-                surveyData = data;
-                console.log('[分析结果]', data);
-
-                // 显示问卷信息
-                $('#surveyInfo').style.display = 'flex';
-                $('#surveyInfo').innerHTML = `
-                    <span class="s-icon">📋</span>
-                    <span class="s-title">${escHtml(data.title)}</span>
-                    <span class="s-count">共 <b>${data.questionCount}</b> 道题目</span>
-                `;
-
-                // 渲染题目列表
-                renderQuestionList(data.questions);
-                $('#qEmpty').style.display = 'none';
-
-                // 显示 Step 3
-                $('#step3Card').style.display = 'block';
-                $('#step3Card').scrollIntoView({ behavior: 'smooth', block: 'center' });
-
-                showToast(`✅ 分析完成！检测到 ${data.questionCount} 道题目`, 'success');
-
-            } catch (err) {
-                console.error(err);
-                showToast(`网络错误: ${err.message}`, 'error');
-                $('#surveyInfo').style.display = 'none';
-            } finally {
-                btn.disabled = false;
-                btn.innerHTML = '🔍 分析问卷';
-            }
         }
+    } else {
+        $('#stCredits').textContent = '-';
+        $('#stUsed').textContent = '-';
+        $('#stFree').textContent = publicSettings?.dailyFree || 3;
+    }
+}
 
-        // ============================================================
-        //  Step 2: 渲染题目列表
-        // ============================================================
-        const TYPE_NAMES = {
-            radio:    { label: '单选', cls: 'radio' },
-            checkbox: { label: '多选', cls: 'checkbox' },
-            text:     { label: '填空', cls: 'text' },
-            textarea: { label: '多行文本', cls: 'text' },
-            select:   { label: '下拉', cls: 'select' },
-            star:     { label: '评分', cls: 'star' },
-            matrix:   { label: '矩阵', cls: 'matrix' },
-            scale:    { label: '量表', cls: 'matrix' },
-            sort:     { label: '排序', cls: 'select' },
-        };
-
-        function renderQuestionList(questions) {
-            const list = $('#qList');
-            if (!questions || questions.length === 0) {
-                list.innerHTML = '';
-                $('#qEmpty').style.display = 'block';
-                return;
-            }
-
-            // 尝试加载已保存配置
-            const saved = loadSavedConfig();
-
-            list.innerHTML = questions.map((q, i) => {
-                const t = TYPE_NAMES[q.type] || { label: q.type, cls: '' };
-                const savedCfg = saved?.[q.fieldName] || saved?.[`q${i}`] || {};
-
-                let controlHtml = '';
-                switch (q.type) {
-                    case 'radio':
-                    case 'select':
-                        if (q.options.length > 0) {
-                            const savedVal = savedCfg.val || '-1';
-                            controlHtml = `
-                                <select data-field="${q.fieldName}" data-idx="${i}" data-type="${q.type}">
-                                    <option value="-1">🎲 随机选择</option>
-                                    ${q.options.map((o, oi) => `
-                                        <option value="${escHtml(o.val)}" ${String(o.val) === String(savedVal) ? 'selected' : ''}>
-                                            ${String.fromCharCode(65 + oi)}. ${escHtml(o.text || o.val)}
-                                        </option>
-                                    `).join('')}
-                                </select>`;
-                        } else {
-                            controlHtml = `<span style="color:#888;font-size:12px;">无选项信息，将随机填写</span>`;
-                        }
-                        break;
-
-                    case 'checkbox':
-                        if (q.options.length > 0) {
-                            const savedVals = savedCfg.vals || [];
-                            controlHtml = `
-                                <div style="display:flex;flex-wrap:wrap;gap:8px;">
-                                    ${q.options.map((o, oi) => `
-                                        <label style="font-size:12px;display:flex;align-items:center;gap:4px;cursor:pointer;">
-                                            <input type="checkbox" data-field="${q.fieldName}" data-idx="${i}"
-                                                data-val="${escHtml(o.val)}" ${savedVals.includes(o.val) ? 'checked' : ''}>
-                                            ${escHtml(o.text || o.val)}
-                                        </label>
-                                    `).join('')}
-                                </div>`;
-                        } else {
-                            controlHtml = `<span style="color:#888;font-size:12px;">无选项信息，将随机勾选1-3个</span>`;
-                        }
-                        break;
-
-                    case 'text':
-                    case 'textarea':
-                        controlHtml = `
-                            <textarea rows="2" data-field="${q.fieldName}" data-idx="${i}" data-type="text"
-                                placeholder="留空则随机生成文本">${escHtml(savedCfg.text || '')}</textarea>`;
-                        break;
-
-                    case 'star':
-                        controlHtml = `
-                            <select data-field="${q.fieldName}" data-idx="${i}" data-type="star">
-                                <option value="-1">🎲 随机3-5星</option>
-                                ${[1,2,3,4,5].map(n => `
-                                    <option value="${n}" ${savedCfg.val === String(n) ? 'selected' : ''}>${'★'.repeat(n)}${'☆'.repeat(5 - n)}</option>
-                                `).join('')}
-                            </select>`;
-                        break;
-
-                    default:
-                        controlHtml = `<span style="font-size:12px;color:#888;">自动随机处理</span>`;
-                }
-
-                return `
-                    <div class="q-item">
-                        <div class="q-header">
-                            <span class="q-num">${i + 1}</span>
-                            <span class="q-type-badge ${t.cls}">${t.label}</span>
-                            <span class="q-title">${escHtml(q.title)}</span>
-                        </div>
-                        <div class="q-control">${controlHtml}</div>
-                        ${q.options.length > 0 ? `<div class="q-opts-info">📎 共 ${q.options.length} 个选项</div>` : ''}
-                    </div>
-                `;
-            }).join('');
+// ==================== Public Settings ====================
+let publicSettings = null;
+async function loadPublicSettings() {
+    try {
+        const r = await fetch('/api/public-settings');
+        publicSettings = await r.json();
+        $('#hdTitle').textContent = publicSettings.siteName || '问卷星自动填写平台';
+        $('#stFree').textContent = publicSettings.dailyFree || 3;
+        $('#buyPricePer').textContent = publicSettings.priceYuan || '18.00';
+        if (publicSettings.paymentQrcode) {
+            $('#buyQrcode').classList.remove('hidden');
+            $('#buyQrImg').src = publicSettings.paymentQrcode;
+            $('#buyQrText').textContent = publicSettings.paymentInstructions || '';
         }
+    } catch(e) {}
+}
 
-        // ============================================================
-        //  收集用户自定义配置
-        // ============================================================
-        function collectCustomConfig() {
-            const config = {};
-            const qList = $('#qList');
+// ==================== Analyze ====================
+async function doAnalyze() {
+    if (!user) { toast('请先登录','e'); showAuth(); return; }
+    const url = $('#urlInput').value.trim();
+    if (!url) { toast('请输入问卷链接','e'); return; }
+    if (!url.includes('wjx.cn')&&!url.includes('wjx.com')&&!url.includes('wjx.top')&&!url.includes('sojump.com')) {
+        toast('请输入有效的问卷星链接','e'); return;
+    }
 
-            qList.querySelectorAll('.q-item').forEach((item, i) => {
-                // 下拉/select
-                const select = item.querySelector('select');
-                if (select) {
-                    const val = select.value;
-                    if (val !== '-1') {
-                        const fieldName = select.dataset.field;
-                        if (fieldName) config[fieldName] = { val };
-                    }
-                }
+    $('#btnAnalyze').disabled = true;
+    $('#btnAnalyze').textContent = '分析中...';
 
-                // checkbox
-                const checks = item.querySelectorAll('input[type="checkbox"]:checked');
-                if (checks.length > 0) {
-                    const vals = [];
-                    checks.forEach(c => {
-                        vals.push(c.dataset.val);
-                        // 收集fieldName
-                        if (!config[c.dataset.field]) {
-                            config[c.dataset.field] = { vals: [] };
-                        }
-                        config[c.dataset.field].vals.push(c.dataset.val);
-                    });
-                }
+    try {
+        const r = await fetch('/api/analyze', { method:'POST', headers:authHeaders(), body:JSON.stringify({url}) });
+        const d = await r.json();
+        if (!d.success) { toast(d.error||'分析失败','e'); return; }
+        surveyData = d;
+        console.log('[问卷]',d);
+        renderQuestions(d.questions);
+        $('#surveyBar').classList.remove('hidden');
+        $('#sName').textContent = d.title;
+        $('#sCount').textContent = `共 ${d.questionCount} 题`;
+        ['step2','step3'].forEach(id=>$('#'+id).classList.remove('hidden'));
+        $('#step3').scrollIntoView({behavior:'smooth',block:'center'});
+        toast(`✅ 检测到 ${d.questionCount} 题`,'s');
+    } catch(e) { toast('网络错误: '+e.message,'e'); }
+    finally { $('#btnAnalyze').disabled=false; $('#btnAnalyze').textContent='🔍 分析问卷'; }
+}
 
-                // textarea
-                const textarea = item.querySelector('textarea');
-                if (textarea && textarea.value.trim()) {
-                    const fieldName = textarea.dataset.field;
-                    if (fieldName) config[fieldName] = { text: textarea.value.trim() };
-                }
-            });
+// ==================== Render Questions ====================
+const TN = {radio:{l:'单选',c:'rd'},checkbox:{l:'多选',c:'ch'},text:{l:'填空',c:'tx'},textarea:{l:'多行',c:'tx'},select:{l:'下拉',c:'rd'},star:{l:'评分',c:'st'},sort:{l:'排序',c:'ch'},matrix:{l:'矩阵',c:'rd'}};
 
-            return config;
+function renderQuestions(qs) {
+    $('#qList').innerHTML = qs.map((q,i)=>{
+        const t=TN[q.type]||{l:q.type,c:''};
+        let c='';
+        switch(q.type){
+            case 'radio': case 'select':
+                c=q.options.length?`<select data-fn="${q.fieldName||''}" data-idx="${i}" data-t="${q.type}"><option value="-1">🎲 随机</option>${q.options.map((o,oi)=>`<option value="${esc(o.val)}">${String.fromCharCode(65+oi)}. ${esc(o.text||o.val)}</option>`).join('')}</select>`:'<span style="font-size:12px;color:#888;">随机填写</span>';
+                break;
+            case 'checkbox':
+                c=q.options.length?`<div style="display:flex;flex-wrap:wrap;gap:6px;">${q.options.map((o,oi)=>`<label style="font-size:12px;cursor:pointer;"><input type="checkbox" data-fn="${q.fieldName||''}" data-idx="${i}" data-val="${esc(o.val)}"> ${esc(o.text||o.val)}</label>`).join('')}</div>`:'<span style="font-size:12px;color:#888;">随机勾选</span>';
+                break;
+            case 'text': case 'textarea':
+                c=`<textarea rows="2" data-fn="${q.fieldName||''}" data-idx="${i}" data-t="text" placeholder="留空=随机生成"></textarea>`;
+                break;
+            case 'star':
+                c=`<select data-fn="${q.fieldName||''}" data-idx="${i}" data-t="star"><option value="-1">🎲 3-5星</option>${[1,2,3,4,5].map(n=>`<option value="${n}">${'★'.repeat(n)}${'☆'.repeat(5-n)}</option>`).join('')}</select>`;
+                break;
+            default: c='<span style="font-size:12px;color:#888;">自动处理</span>';
         }
+        return `<div class="q-item"><div class="q-top"><span class="q-num">${i+1}</span><span class="q-tag ${t.c}">${t.l}</span><span class="q-title">${esc(q.title)}</span></div><div class="q-ctrl">${c}</div>${q.options.length?`<div style="font-size:11px;color:#999;margin-left:30px;margin-top:4px;">📎 ${q.options.length}个选项</div>`:''}</div>`;
+    }).join('');
+}
 
-        // ============================================================
-        //  配置导入导出
-        // ============================================================
-        function exportConfig() {
-            const config = collectCustomConfig();
-            const blob = new Blob([JSON.stringify({
-                url: $('#urlInput').value.trim(),
-                config,
-                exportedAt: new Date().toISOString(),
-            }, null, 2)], { type: 'application/json' });
-            const link = document.createElement('a');
-            link.href = URL.createObjectURL(blob);
-            link.download = `wjx-config-${Date.now()}.json`;
-            link.click();
-            showToast('💾 配置已导出', 'success');
+function collectConfig() {
+    const cfg = {};
+    $$('#qList .q-item').forEach(item=>{
+        const sel = item.querySelector('select');
+        if (sel) {
+            const fn = sel.dataset.fn; if (!fn || sel.value==='-1') return;
+            cfg[fn] = { val: sel.value };
         }
+        const checks = item.querySelectorAll('input[type="checkbox"]:checked');
+        if (checks.length) {
+            const fn = checks[0].dataset.fn; if (!fn) return;
+            cfg[fn] = { vals: Array.from(checks).map(c=>c.dataset.val) };
+        }
+        const ta = item.querySelector('textarea');
+        if (ta && ta.value.trim()) {
+            const fn = ta.dataset.fn; if (!fn) return;
+            cfg[fn] = { text: ta.value.trim() };
+        }
+    });
+    return cfg;
+}
 
-        function importConfig(input) {
-            const file = input.files[0];
-            if (!file) return;
-            const reader = new FileReader();
-            reader.onload = (e) => {
+// ==================== Batch Submit ====================
+async function doBatch() {
+    if (!surveyData) { toast('请先分析问卷','e'); return; }
+    if (isRunning) return;
+    if (!user) { toast('请先登录','e'); showAuth(); return; }
+
+    const cnt = parseInt($('#cnt').value)||10;
+    const dly = parseInt($('#dly').value)||800;
+    const mode = $('#mode').value;
+    const ipMode = $('#ipMode').value;
+
+    if (cnt<1||cnt>500) { toast('份数1-500','e'); return; }
+    if (dly<200) { toast('间隔最少200ms','e'); return; }
+
+    // 检查次数
+    const me = await fetch('/api/auth/me',{headers:authHeaders()}).then(r=>r.json());
+    if (me.credits < cnt) {
+        toast(`次数不足！剩余${me.credits}次，需要${cnt}次`,'e');
+        openBuy();
+        return;
+    }
+
+    const cfg = (mode==='custom'||mode==='mixed') ? collectConfig() : {};
+    isRunning = true;
+    $('#btnGo').disabled=true;
+    $('#btnStop').disabled=false;
+    $('#progPanel').classList.remove('hidden');
+    $('#progPanel').scrollIntoView({behavior:'smooth',block:'center'});
+    $('#pT').textContent=cnt; $('#pS').textContent='0'; $('#pF').textContent='0'; $('#pP').textContent='0%';
+    $('#progBar').style.width='0%';
+    $('#logBox').innerHTML=`<span class="info">🚀 开始批量提交 ${cnt} 份, 间隔 ${dly}ms</span>\n`;
+
+    abortCtrl = new AbortController();
+
+    try {
+        const r = await fetch('/api/batch-submit', {
+            method:'POST', headers:authHeaders(),
+            body:JSON.stringify({
+                submitUrl:surveyData.submitUrl,
+                formDataTemplate:surveyData.hiddenFields||{},
+                questions:surveyData.questions,
+                count:cnt, delay:dly, referer:$('#urlInput').value.trim(),
+                customConfig:cfg, answerMode:mode,
+                ipMode,
+            }),
+            signal:abortCtrl.signal,
+        });
+        const reader = r.body.getReader();
+        const dec = new TextDecoder();
+        while(true) {
+            const {done,value} = await reader.read();
+            if (done) break;
+            const lines = dec.decode(value,{stream:true}).split('\n').filter(l=>l.startsWith('data: '));
+            for (const l of lines) {
                 try {
-                    const data = JSON.parse(e.target.result);
-                    if (data.url) $('#urlInput').value = data.url;
-                    if (data.config) {
-                        saveConfigToStorage(data.config);
-                        showToast('📥 配置已导入，请重新分析问卷以应用', 'success');
-                        // 自动触发分析
-                        setTimeout(() => analyzeSurvey(), 500);
+                    const ev = JSON.parse(l.slice(6));
+                    if (ev.type==='progress') {
+                        $('#pS').textContent=ev.success; $('#pF').textContent=ev.fail;
+                        $('#pP').textContent=ev.percent+'%'; $('#progBar').style.width=ev.percent+'%';
+                        $('#pIP').textContent='🌐 '+ev.ip;
+                        addLog(`<span class="ts">#${ev.current}/${ev.total}</span> ${ev.lastError?'⚠️':'✅'} 成功:${ev.success} 失败:${ev.fail} [${ev.ip}]`);
+                        if (ev.lastError) addLog(`  <span class="err">⚠ ${ev.lastError.slice(0,80)}</span>`);
+                    } else if (ev.type==='complete') {
+                        addLog(`<span class="ok">🎉 完成！成功${ev.success} 失败${ev.fail}</span>`);
+                        toast(`✅ 成功${ev.success}份 失败${ev.fail}份`,'s');
+                    } else if (ev.type==='credits') {
+                        user.credits = ev.credits;
+                        updateUI();
+                        addLog(`<span class="info">🪙 剩余次数: ${ev.credits}</span>`);
+                    } else if (ev.type==='error') {
+                        addLog(`<span class="err">❌ ${ev.error}</span>`);
+                        toast(ev.error,'e');
                     }
-                } catch (err) {
-                    showToast('配置文件格式错误', 'error');
-                }
-            };
-            reader.readAsText(file);
-            input.value = '';
-        }
-
-        function saveConfigToStorage(config) {
-            try {
-                const url = $('#urlInput').value.trim();
-                const key = 'wjx_config_' + btoa(url).slice(0, 40);
-                localStorage.setItem(key, JSON.stringify(config));
-            } catch (e) { /* ignore */ }
-        }
-
-        function loadSavedConfig() {
-            try {
-                const url = $('#urlInput').value.trim();
-                const key = 'wjx_config_' + btoa(url).slice(0, 40);
-                const raw = localStorage.getItem(key);
-                return raw ? JSON.parse(raw) : null;
-            } catch (e) { return null; }
-        }
-
-        // ============================================================
-        //  Step 3: 批量提交
-        // ============================================================
-        let stopRequested = false;
-
-        async function startBatch() {
-            if (!surveyData) {
-                showToast('请先分析问卷', 'error');
-                return;
-            }
-            if (isRunning) return;
-
-            const count = parseInt($('#submitCount').value) || 10;
-            const delay = parseInt($('#submitDelay').value) || 800;
-            const mode = $('#answerMode').value;
-
-            if (count < 1 || count > 500) {
-                showToast('份数范围: 1-500', 'error');
-                return;
-            }
-            if (delay < 200) {
-                showToast('间隔最小200ms', 'error');
-                return;
-            }
-
-            // 收集自定义配置
-            const customConfig = (mode === 'custom' || mode === 'mixed')
-                ? collectCustomConfig()
-                : {};
-
-            // 保存配置
-            saveConfigToStorage(customConfig);
-
-            // UI 切换
-            isRunning = true;
-            stopRequested = false;
-            $('#btnStart').disabled = true;
-            $('#btnStop').disabled = false;
-            $('#progressPanel').classList.add('active');
-            $('#progressPanel').scrollIntoView({ behavior: 'smooth', block: 'center' });
-
-            // 重置进度
-            $('#statTotal').textContent = count;
-            $('#statOk').textContent = '0';
-            $('#statFail').textContent = '0';
-            $('#statPct').textContent = '0%';
-            $('#progressBar').style.width = '0%';
-            $('#logStream').innerHTML = `<span class="info">📋 开始批量提交 ${count} 份, 间隔 ${delay}ms...</span>\n`;
-
-            abortController = new AbortController();
-
-            try {
-                const resp = await fetch('/api/batch-submit', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        submitUrl: surveyData.submitUrl,
-                        formDataTemplate: surveyData.hiddenFields || {},
-                        questions: surveyData.questions,
-                        count,
-                        delay,
-                        referer: $('#urlInput').value.trim(),
-                        customConfig: (mode === 'custom' || mode === 'mixed') ? customConfig : null,
-                        answerMode: mode,
-                    }),
-                    signal: abortController.signal,
-                });
-
-                const reader = resp.body.getReader();
-                const decoder = new TextDecoder();
-
-                while (true) {
-                    const { done, value } = await reader.read();
-                    if (done) break;
-
-                    const text = decoder.decode(value, { stream: true });
-                    const lines = text.split('\n').filter(l => l.startsWith('data: '));
-
-                    for (const line of lines) {
-                        try {
-                            const event = JSON.parse(line.slice(6));
-                            handleProgressEvent(event);
-                        } catch (e) { /* skip parse error */ }
-                    }
-                }
-
-            } catch (err) {
-                if (err.name !== 'AbortError') {
-                    console.error(err);
-                    addLog(`<span class="bad">❌ 网络错误: ${err.message}</span>`);
-                    showToast(`网络错误: ${err.message}`, 'error');
-                } else {
-                    addLog(`<span class="info">⏹ 任务已停止</span>`);
-                }
-            } finally {
-                isRunning = false;
-                $('#btnStart').disabled = false;
-                $('#btnStop').disabled = true;
+                } catch(_){}
             }
         }
-
-        function stopBatch() {
-            stopRequested = true;
-            if (abortController) {
-                abortController.abort();
-            }
-            addLog(`<span class="info">⏹ 正在停止...</span>`);
-            $('#btnStop').disabled = true;
+    } catch(e) {
+        if (e.name!=='AbortError') {
+            addLog(`<span class="err">❌ ${e.message}</span>`);
+            toast(e.message,'e');
         }
+    } finally {
+        isRunning=false; $('#btnGo').disabled=false; $('#btnStop').disabled=true;
+        // Refresh user credits
+        try {
+            const me2 = await fetch('/api/auth/me',{headers:authHeaders()}).then(r=>r.json());
+            user = me2; updateUI();
+        } catch(_){}
+    }
+}
 
-        function handleProgressEvent(evt) {
-            switch (evt.type) {
-                case 'progress':
-                    $('#statOk').textContent = evt.success;
-                    $('#statFail').textContent = evt.fail;
-                    $('#statPct').textContent = evt.percent + '%';
-                    $('#progressBar').style.width = evt.percent + '%';
+function stopBatch() {
+    if (abortCtrl) abortCtrl.abort();
+    addLog('<span class="info">⏹ 停止中...</span>');
+}
 
-                    let emoji = '✅';
-                    if (evt.lastError) emoji = '⚠️';
-                    addLog(`<span class="ts">#${evt.current}/${evt.total}</span>${emoji} 成功:${evt.success} 失败:${evt.fail} ${evt.percent}%`);
+function addLog(h) { const e=$('#logBox'); e.innerHTML+=h+'\n'; e.scrollTop=e.scrollHeight; }
 
-                    if (evt.lastError) {
-                        addLog(`  <span class="bad">⚠ ${evt.lastError.slice(0, 80)}</span>`);
-                    }
-                    break;
+// ==================== Buy ====================
+function openBuy() { calcBuy(); $('#buyModal').classList.add('show'); }
+function closeBuy() { $('#buyModal').classList.remove('show'); }
+function calcBuy() {
+    const a = parseInt($('#buyAmount').value)||200;
+    const py = parseFloat(publicSettings?.priceYuan||'18');
+    const units = Math.floor(a/200);
+    const total = units<1?py:(units*py);
+    $('#buyPrice').value = '¥ '+total.toFixed(2);
+}
 
-                case 'complete':
-                    $('#statPct').textContent = '100%';
-                    $('#progressBar').style.width = '100%';
-                    addLog(`<span class="ok">🎉 ===== 任务完成 =====</span>`);
-                    addLog(`<span class="ok">✅ 成功: ${evt.success} 份  ❌ 失败: ${evt.fail} 份</span>`);
-                    showToast(`🎉 完成！成功 ${evt.success} 份，失败 ${evt.fail} 份`, evt.fail > 0 ? 'info' : 'success');
-                    break;
-
-                case 'error':
-                    addLog(`<span class="bad">❌ ${evt.error}</span>`);
-                    showToast(evt.error, 'error');
-                    break;
-            }
+async function doBuy() {
+    if (!user) { toast('请先登录','e'); return; }
+    const a = parseInt($('#buyAmount').value)||200;
+    const n = $('#buyNote').value;
+    try {
+        const r = await fetch('/api/orders/create',{method:'POST',headers:authHeaders(),body:JSON.stringify({amount:a,paymentNote:n})});
+        const d = await r.json();
+        if (!d.success) { toast(d.error,'e'); return; }
+        // 更新支付信息
+        if (d.paymentInfo?.qrcode) {
+            $('#buyQrcode').classList.remove('hidden');
+            $('#buyQrImg').src = d.paymentInfo.qrcode;
+            $('#buyQrText').textContent = d.paymentInfo.instructions;
         }
+        toast(`订单#${d.order.id}已创建，${d.pricing.yuan}元，请付款后等待确认`,'s');
+        closeBuy();
+    } catch(e) { toast('网络错误','e'); }
+}
 
-        function addLog(html) {
-            const el = $('#logStream');
-            el.innerHTML += html + '\n';
-            el.scrollTop = el.scrollHeight;
-        }
+// ==================== Orders ====================
+function openOrders() { $('#ordersModal').classList.add('show'); loadOrders(); }
+function closeOrders() { $('#ordersModal').classList.remove('show'); }
+async function loadOrders() {
+    try {
+        const r = await fetch('/api/orders/my',{headers:authHeaders()});
+        const d = await r.json();
+        const st = {pending:'⏳ 待审核',paid:'✅ 已确认',cancelled:'❌ 已拒绝'};
+        $('#ordersContent').innerHTML = d.orders.length
+            ? `<table class="tbl"><tr><th>订单号</th><th>份数</th><th>金额</th><th>状态</th><th>时间</th></tr>${d.orders.map(o=>`<tr><td>#${o.id}</td><td>${o.amount}</td><td>${(o.price_cents/100).toFixed(2)}元</td><td>${st[o.status]||o.status}</td><td>${new Date(o.created_at).toLocaleString('zh-CN')}</td></tr>`).join('')}</table>`
+            : '<p style="color:var(--tx2);">暂无订单</p>';
+    } catch(e) { $('#ordersContent').innerHTML='<p style="color:var(--err);">加载失败</p>'; }
+}
 
-        // ============================================================
-        //  工具函数
-        // ============================================================
-        function escHtml(s) {
-            if (!s) return '';
-            const d = document.createElement('div');
-            d.textContent = s;
-            return d.innerHTML;
-        }
-
-        // ============================================================
-        //  快捷键: Ctrl+Enter 分析问卷
-        // ============================================================
-        document.addEventListener('keydown', (e) => {
-            if (e.ctrlKey && e.key === 'Enter') {
-                e.preventDefault();
-                if (!isRunning) analyzeSurvey();
+// ==================== Admin ====================
+function openAdmin() { $('#adminModal').classList.add('show'); adminTab('orders'); }
+function closeAdmin() { $('#adminModal').classList.remove('show'); }
+async function adminTab(tab) {
+    const c = $('#adminContent');
+    try {
+        switch(tab) {
+            case 'orders': {
+                const r = await fetch('/api/admin/orders/pending',{headers:authHeaders()});
+                const d = await r.json();
+                c.innerHTML = d.orders.length
+                    ? `<table class="tbl"><tr><th>订单号</th><th>用户</th><th>份数</th><th>金额</th><th>备注</th><th>操作</th></tr>${d.orders.map(o=>`<tr><td>#${o.id}</td><td>${esc(o.username)}</td><td>${o.amount}</td><td>${(o.price_cents/100).toFixed(2)}元</td><td>${esc(o.payment_note||'-')}</td><td><button class="btn btn-sm btn-ok" onclick="adminApprove(${o.id})">确认已付款</button> <button class="btn btn-sm btn-err" onclick="adminReject(${o.id})">拒绝</button></td></tr>`).join('')}</table>`
+                    : '<p style="color:var(--tx2);">暂无待审核订单</p>';
+                break;
             }
-        });
-
-        $('#urlInput').addEventListener('keydown', (e) => {
-            if (e.key === 'Enter') {
-                e.preventDefault();
-                analyzeSurvey();
+            case 'settings': {
+                const r = await fetch('/api/admin/settings',{headers:authHeaders()});
+                const d = await r.json();
+                c.innerHTML = Object.entries(d.settings||{}).filter(([k])=>!k.startsWith('daily_free_reset')).map(([k,v])=>`
+                    <div class="field"><label>${k}</label><input type="text" id="set_${k}" value="${esc(v)}" style="width:100%;padding:8px;border:1px solid var(--bd);border-radius:6px;"></div>
+                `).join('')+`<button class="btn btn-pri" style="margin-top:10px;width:100%;" onclick="saveSettings()">保存设置</button>`;
+                break;
             }
-        });
+            case 'grant':
+                c.innerHTML = `<div class="field"><label>用户名</label><input type="text" id="gU" placeholder="输入用户名"></div><div class="field"><label>增加次数</label><input type="number" id="gA" value="100"></div><div class="field"><label>备注</label><input type="text" id="gN" placeholder="充值原因"></div><button class="btn btn-pri" style="width:100%;" onclick="doGrant()">确认充值</button>`;
+                break;
+            case 'announce':
+                c.innerHTML = `<div class="field"><label>标题</label><input type="text" id="aT" placeholder="公告标题"></div><div class="field"><label>内容</label><textarea id="aC" rows="4" style="width:100%;padding:8px;border:1px solid var(--bd);border-radius:6px;"></textarea></div><button class="btn btn-pri" style="width:100%;" onclick="doAnnounce()">发布公告</button>`;
+                break;
+        }
+    } catch(e) { c.innerHTML = '<p style="color:var(--err);">加载失败: '+e.message+'</p>'; }
+}
 
-        // ============================================================
-        //  初始化
-        // ============================================================
-        console.log('%c📋 问卷星自动填写平台 v1.0 %c已就绪', 'font-size:16px;', '');
-        console.log('  粘贴问卷星链接 → 分析 → 自定义答案 → 批量提交');
-        console.log('  支持题型: 单选 / 多选 / 填空 / 下拉 / 评分 / 矩阵 / 排序');
-        console.log('  💡 按 Ctrl+Enter 快速分析问卷');
-    </script>
+async function adminApprove(id) {
+    try {
+        const r = await fetch('/api/admin/orders/approve',{method:'POST',headers:authHeaders(),body:JSON.stringify({orderId:id})});
+        const d = await r.json();
+        if (d.success) { toast('已确认支付，用户已获得次数','s'); adminTab('orders'); }
+        else toast(d.error,'e');
+    } catch(e) { toast('操作失败','e'); }
+}
+async function adminReject(id) {
+    const reason = prompt('拒绝原因（可选）:');
+    try {
+        const r = await fetch('/api/admin/orders/reject',{method:'POST',headers:authHeaders(),body:JSON.stringify({orderId:id,adminNote:reason||''})});
+        const d = await r.json();
+        if (d.success) { toast('已拒绝','i'); adminTab('orders'); }
+        else toast(d.error,'e');
+    } catch(e) { toast('操作失败','e'); }
+}
+async function saveSettings() {
+    const s = {};
+    $$('#adminContent input[id^="set_"]').forEach(inp=>{ s[inp.id.replace('set_','')] = inp.value; });
+    try {
+        const r = await fetch('/api/admin/settings',{method:'POST',headers:authHeaders(),body:JSON.stringify(s)});
+        const d = await r.json();
+        toast(d.success?'设置已保存':d.error,'s');
+        loadPublicSettings();
+    } catch(e) { toast('保存失败','e'); }
+}
+async function doGrant() {
+    const u = $('#gU').value.trim(), a = $('#gA').value, n = $('#gN').value;
+    try {
+        const r = await fetch('/api/admin/grant-credits',{method:'POST',headers:authHeaders(),body:JSON.stringify({username:u,amount:parseInt(a),note:n})});
+        const d = await r.json();
+        toast(d.success?d.message:d.error,'s');
+    } catch(e) { toast('操作失败','e'); }
+}
+async function doAnnounce() {
+    const t = $('#aT').value.trim(), c = $('#aC').value.trim();
+    try {
+        const r = await fetch('/api/admin/announce',{method:'POST',headers:authHeaders(),body:JSON.stringify({title:t,content:c})});
+        const d = await r.json();
+        toast(d.success?'公告已发布':d.error,'s');
+    } catch(e) { toast('发布失败','e'); }
+}
+
+// ==================== Config Import/Export ====================
+function exportCfg() {
+    const cfg = collectConfig();
+    const blob = new Blob([JSON.stringify({url:$('#urlInput').value.trim(),config:cfg,exportedAt:new Date().toISOString()},null,2)],{type:'application/json'});
+    const a = document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='wjx-config-'+Date.now()+'.json'; a.click();
+    toast('配置已导出','s');
+}
+function importCfg(inp) {
+    const f = inp.files[0]; if (!f) return;
+    const rd = new FileReader();
+    rd.onload = e => {
+        try {
+            const d = JSON.parse(e.target.result);
+            if (d.url) $('#urlInput').value = d.url;
+            if (d.config) { localStorage.setItem('wjx_imp_cfg_'+btoa($('#urlInput').value).slice(0,30), JSON.stringify(d.config)); }
+            toast('配置已导入，请重新分析问卷','s');
+            setTimeout(doAnalyze,500);
+        } catch(_) { toast('格式错误','e'); }
+    };
+    rd.readAsText(f); inp.value='';
+}
+
+// ==================== Utilities ====================
+function esc(s) { if (!s) return ''; const d=document.createElement('div'); d.textContent=s; return d.innerHTML; }
+document.addEventListener('keydown',e=>{ if(e.ctrlKey&&e.key==='Enter'){ e.preventDefault(); if(!isRunning) doAnalyze(); } });
+$('#urlInput').addEventListener('keydown',e=>{ if(e.key==='Enter') { e.preventDefault(); doAnalyze(); } });
+</script>
 </body>
 </html>

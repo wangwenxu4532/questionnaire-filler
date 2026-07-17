@@ -1,17 +1,20 @@
 {
   "name": "questionnaire-filler",
-  "version": "1.0.0",
-  "description": "问卷星自动填写平台 - 输入链接即可批量刷问卷",
+  "version": "2.0.0",
+  "description": "问卷星自动填写平台 - 含用户系统 + 收费功能",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
     "dev": "node server.js"
   },
-  "keywords": ["问卷星", "自动填写", "批量提交"],
+  "keywords": ["问卷星", "自动填写", "批量提交", "收费"],
   "license": "MIT",
   "dependencies": {
     "axios": "^1.7.2",
+    "bcryptjs": "^2.4.3",
     "express": "^4.19.2",
-    "jsdom": "^24.1.0"
+    "jsdom": "^24.1.0",
+    "jsonwebtoken": "^9.0.2",
+    "uuid": "^10.0.0"
   }
 }
