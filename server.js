@@ -87,10 +87,9 @@ app.post('/api/analyze',auth,async(req,res)=>{
             const qs=parseQs(doc);console.log(`[分析-粘贴]${req.u.username}:${qs.length}题`);
             return res.json({success:true,title:doc.querySelector('title')?.textContent||'问卷',questionCount:qs.length,questions:qs,submitUrl:getSubmitUrl(doc,url||''),hiddenFields:getHidden(doc),rawHtml:pHtml});}
         if(!url)return res.status(400).json({error:'请提供链接或粘贴源码'});
-        // Try fetching from url
         const mirrors=[url];if(url.includes('wjx.cn')){mirrors.push(url.replace('www.wjx.cn','ks.wjx.top'),url.replace('wjx.cn','ks.wjx.top'))}
-        for(const mu of mirrors){try{const resp=await axios.get(mu,{headers:{'User-Agent':randUA(),'Accept':'text/html,*/*','Accept-Language':'zh,en;q=0.9','Referer':'https://www.wjx.cn/'},timeout:15000,maxRedirects:5});const h=resp.data;if(typeof h==='string'&&(h.includes('div_question')||h.includes('jqRadio'))){const doc=new JSDOM(h).window.document;const qs=parseQs(doc);console.log(`[分析-代理]${req.u.username}:${qs.length}题`);return res.json({success:true,title:doc.querySelector('title')?.textContent||'问卷',questionCount:qs.length,questions:qs,submitUrl:getSubmitUrl(doc,mu),hiddenFields:getHidden(doc),rawHtml:h})}}catch(e){console.log(`[分析]镜像失败:${mu}`)}}
-        return res.json({success:true,title:'需粘贴源码',questionCount:0,questions:[],submitUrl:url,hiddenFields:{},needPasteHtml:true,hint:'请打开问卷→右键→查看源代码→全选复制→粘贴到网站'})}
+        for(const mu of mirrors){try{const resp=await axios.get(mu,{headers:{'User-Agent':randUA(),'Accept':'text/html,*/*','Accept-Language':'zh,en;q=0.9','Referer':'https://www.wjx.cn/','Cookie':'acw_tc=ac'},timeout:20000,maxRedirects:5,validateStatus:s=>s<500});const h=resp.data;if(typeof h==='string'&&(h.includes('div_question')||h.includes('jqRadio')||h.includes('fieldset'))){const doc=new JSDOM(h).window.document;const qs=parseQs(doc);console.log(`[分析-代理]${req.u.username}:${qs.length}题`);return res.json({success:true,title:doc.querySelector('title')?.textContent||'问卷',questionCount:qs.length,questions:qs,submitUrl:getSubmitUrl(doc,mu),hiddenFields:getHidden(doc),rawHtml:h})}}catch(e){console.log(`[分析]镜像${mu}:${e.message}`)}}
+        return res.json({success:true,title:'需粘贴源码',questionCount:0,questions:[],submitUrl:url,hiddenFields:{},needPasteHtml:true,hint:'服务器无法访问问卷，请右键→查看源代码→全选复制→粘贴到下方'})}
     catch(e){res.status(500).json({error:e.message})}
 });
 
