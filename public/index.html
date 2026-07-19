@@ -225,20 +225,33 @@
     </div>
 
     <div class="card hidden" id="step3">
-        <div class="card-h">⚙️ Step 3 — 配置提交</div>
+        <div class="card-h">⚙️ Step 3 — 提交问卷</div>
         <div class="config-row">
             <div><label>📦 提交份数</label><input type="number" id="cnt" value="10" min="1" max="500"></div>
             <div><label>⏱ 间隔(ms)</label><input type="number" id="dly" value="800" min="200" max="10000"></div>
             <div><label>🎲 答案模式</label><select id="mode"><option value="random">随机选择</option><option value="custom">自定义</option><option value="mixed">混合(自定义优先)</option></select></div>
         </div>
         <div style="margin-top:14px;display:flex;gap:10px;flex-wrap:wrap;">
-            <button class="btn btn-ok" id="btnGo" onclick="doBatch()" style="padding:12px 28px;font-size:15px;">🚀 开始批量提交</button>
-            <button class="btn btn-err" id="btnStop" onclick="stopBatch()" disabled>⏹ 停止</button>
+            <button class="btn btn-ok" id="btnGo" onclick="generateScript()" style="padding:12px 28px;font-size:15px;">📜 生成提交脚本</button>
             <button class="btn btn-ghost" onclick="exportCfg()">💾 导出配置</button>
             <button class="btn btn-ghost" onclick="document.getElementById('impF').click()">📥 导入配置</button>
             <input type="file" id="impF" accept=".json" style="display:none;" onchange="importCfg(this)">
         </div>
-        <div style="margin-top:8px;font-size:12px;color:var(--err);">⚠️ 每提交一份消耗 <b>1 次</b>，请确保次数足够！</div>
+        <div style="margin-top:8px;font-size:12px;color:var(--tx2);">
+            ⚠️ 生成脚本后，在问卷页面按 F12 打开控制台粘贴运行即可
+        </div>
+        <div id="scriptArea" class="hidden" style="margin-top:12px;">
+            <div style="font-size:13px;font-weight:600;margin-bottom:6px;">📋 操作步骤：</div>
+            <ol style="font-size:12px;color:var(--tx2);margin-bottom:10px;padding-left:18px;">
+                <li>打开问卷链接</li>
+                <li>按 <b>F12</b> → 点 <b>Console（控制台）</b></li>
+                <li>粘贴下方脚本 → 按回车</li>
+                <li>脚本自动填写并提交，完成后回到本页面确认</li>
+            </ol>
+            <textarea id="scriptCode" rows="15" readonly style="width:100%;padding:10px;border:2px solid var(--pri);border-radius:8px;font-size:12px;font-family:'Cascadia Code','Fira Code',Consolas,monospace;background:#1e293b;color:#cbd5e1;"></textarea>
+            <button class="btn btn-pri" onclick="copyScript()" style="margin-top:8px;">📋 复制脚本</button>
+            <span id="copyOk" style="color:var(--ok);font-size:12px;margin-left:8px;display:none;">✅ 已复制！去问卷页面粘贴运行</span>
+        </div>
     </div>
 
     <div class="prog hidden" id="progPanel">
@@ -525,97 +538,191 @@ function collectConfig() {
     return cfg;
 }
 
-// ═══════════ Batch - 浏览器直发（绕过海外IP限制） ═══════════
-async function doBatch() {
+// ═══════════ Generate Script ═══════════
+function generateScript() {
     if (!surveyData) { toast('请先分析问卷', 'e'); return; }
-    if (isRunning) return;
     if (!user) { toast('请先登录', 'e'); showAuth(); return; }
     const cnt = parseInt($('#cnt').value) || 10, dly = parseInt($('#dly').value) || 800, mode = $('#mode').value;
     if (cnt < 1 || cnt > 500) { toast('份数1-500', 'e'); return; }
-    if (dly < 200) { toast('间隔最少200ms', 'e'); return; }
-
-    const me = await fetch('/api/auth/me', { headers: authHeaders() }).then(r => r.json());
-    if (me.credits < cnt) { toast(`次数不足！剩余${me.credits}次，需要${cnt}次`, 'e'); openBuy(); return; }
-
-    // 先扣次数
-    const cr = await fetch('/api/consume-credits', { method:'POST', headers:authHeaders(), body:JSON.stringify({count:cnt}) });
-    const crd = await cr.json();
-    if (!crd.success) { toast(crd.error||'扣减次数失败','e'); return; }
-    user.credits = crd.credits; updateUI();
 
     const cfg = (mode === 'custom' || mode === 'mixed') ? collectConfig() : {};
-    isRunning = true; $('#btnGo').disabled = true; $('#btnStop').disabled = false;
-    $('#progPanel').classList.remove('hidden'); $('#progPanel').scrollIntoView({ behavior: 'smooth', block: 'center' });
-    $('#pT').textContent = cnt; $('#pS').textContent = '0'; $('#pF').textContent = '0'; $('#pP').textContent = '0%'; $('#progBar').style.width = '0%';
-    $('#logBox').innerHTML = `<span class="info">🚀 浏览器直发：${cnt} 份, 间隔 ${dly}ms</span>\n`;
+    const questions = surveyData.questions;
 
-    let ok = 0, fail = 0, stopFlag = false;
-    const referer = $('#urlInput').value.trim();
-    const submitUrl = surveyData.submitUrl;
+    // 生成可在问卷页面 F12 Console 运行的脚本
+    const script = generateSurveyScript(questions, cfg, mode, cnt, dly, surveyData.submitUrl);
 
-    // 用 fetch 从浏览器直接提交（绕过服务器，走国内 IP）
-    for (let i = 0; i < cnt && !stopFlag; i++) {
-        try {
-            let formData;
-            if (mode === 'custom' && cfg && Object.keys(cfg).length > 0) {
-                formData = applyCustomAnswers(surveyData.hiddenFields||{}, cfg, surveyData.questions);
-            } else if (mode === 'mixed' && cfg) {
-                formData = genRandomAnswers(surveyData.hiddenFields||{}, surveyData.questions);
-                formData = mergeCustomAnswers(formData, cfg, surveyData.questions);
-            } else {
-                formData = genRandomAnswers(surveyData.hiddenFields||{}, surveyData.questions);
-            }
-
-            const params = new URLSearchParams();
-            Object.entries(formData).forEach(([k,v])=>{
-                if (Array.isArray(v)) v.forEach(x=>params.append(k,x));
-                else params.append(k,v);
-            });
-
-            const resp = await fetch(submitUrl, {
-                method:'POST',
-                headers:{'Content-Type':'application/x-www-form-urlencoded; charset=UTF-8','Accept':'*/*','X-Requested-With':'XMLHttpRequest'},
-                body: params.toString(),
-                mode: 'no-cors', // 跨域也发
-            });
-            ok++;
-            addLog(`<span class="ts">#${i+1}/${cnt}</span> ✅ 成功`);
-        } catch(e) {
-            fail++;
-            addLog(`<span class="ts">#${i+1}/${cnt}</span> <span class="err">❌ ${e.message.slice(0,60)}</span>`);
-        }
-        $('#pS').textContent=ok; $('#pF').textContent=fail;
-        $('#pP').textContent=Math.round((i+1)/cnt*100)+'%';
-        $('#progBar').style.width=Math.round((i+1)/cnt*100)+'%';
-        if (i < cnt - 1) await sleep(dly);
-    }
-
-    addLog(`<span class="ok">🎉 完成！成功${ok} 失败${fail}</span>`);
-    toast(`✅ 成功${ok}份 失败${fail}份`, 's');
-    isRunning = false; $('#btnGo').disabled = false; $('#btnStop').disabled = true;
-    try { const me2 = await fetch('/api/auth/me',{headers:authHeaders()}).then(r=>r.json()); user=me2; updateUI(); } catch(_){}
+    $('#scriptCode').value = script;
+    $('#scriptArea').classList.remove('hidden');
+    $('#scriptArea').scrollIntoView({ behavior: 'smooth', block: 'center' });
+    toast('📜 脚本已生成，请按步骤操作', 's');
 }
 
-function sleep(ms){ return new Promise(r=>setTimeout(r,ms)); }
+function generateSurveyScript(questions, cfg, mode, cnt, dly, submitUrl) {
+    // 生成答案生成器的 JS 代码
+    const qConfigs = JSON.stringify(questions);
+    const userConfig = JSON.stringify(cfg || {});
+    const answerMode = mode;
+    const ref = $('#urlInput').value.trim();
 
-function genRandomAnswers(template, questions) {
-    const data = { ...template };
-    if (!questions) return data;
-    questions.forEach(q => {
-        const fn = q.fieldName; if (!fn) return;
-        switch (q.type) {
-            case 'radio': if (q.options.length) data[fn] = q.options[Math.floor(Math.random() * q.options.length)].val; break;
-            case 'checkbox': { const cnt = 1 + Math.floor(Math.random() * Math.min(3, q.options.length)); const p = [...q.options].sort(() => Math.random() - 0.5).slice(0, cnt); const cl = fn.replace('[]', ''); fn.includes('[]') ? (data[cl] = p.map(x => x.val)) : p.forEach((x, i) => { data[`${cl}[${i}]`] = x.val; }); break; }
-            case 'text': case 'textarea': data[fn] = ['不错','服务好','体验好','性价比高','质量可靠'][Math.floor(Math.random() * 5)]; break;
-            case 'select': if (q.options.length) data[fn] = q.options[Math.floor(Math.random() * q.options.length)].val; break;
-            case 'star': data[fn] = String(3 + Math.floor(Math.random() * 3)); break;
+    return `// 问卷星自动提交脚本 - 在问卷页面按F12→Console粘贴运行
+(async function() {
+    const CNT = ${cnt}, DLY = ${dly}, MODE = '${answerMode}';
+    const QUESTIONS = ${qConfigs};
+    const CUSTOM_CFG = ${userConfig};
+    const BACKEND_URL = '${location.origin}';
+    const TOKEN = '${token}';
+
+    function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+    function genRandomAnswers() {
+        const data = {};
+        QUESTIONS.forEach(q => {
+            if (!q.fieldName) return;
+            switch (q.type) {
+                case 'radio':
+                    if (q.options.length) data[q.fieldName] = q.options[Math.floor(Math.random() * q.options.length)].val;
+                    break;
+                case 'checkbox': {
+                    const cnt = 1 + Math.floor(Math.random() * Math.min(3, q.options.length));
+                    const picks = [...q.options].sort(() => Math.random() - 0.5).slice(0, cnt);
+                    const clean = q.fieldName.replace('[]', '');
+                    picks.forEach((p, i) => { data[clean + '$' + i] = p.val; });
+                    break;
+                }
+                case 'text': case 'textarea':
+                    data[q.fieldName] = ['产品整体体验不错','服务态度好功能齐全','使用体验良好','性价比不错','质量可靠值得推荐'][Math.floor(Math.random() * 5)];
+                    break;
+                case 'select':
+                    if (q.options.length) data[q.fieldName] = q.options[Math.floor(Math.random() * q.options.length)].val;
+                    break;
+                case 'star':
+                    data[q.fieldName] = (3 + Math.floor(Math.random() * 3)).toString();
+                    break;
+            }
+        });
+        // 应用自定义配置
+        if (MODE !== 'random') {
+            QUESTIONS.forEach(q => {
+                const fc = CUSTOM_CFG[q.fieldName];
+                if (!fc) return;
+                if (q.type === 'radio' || q.type === 'select') data[q.fieldName] = fc.val;
+                if (q.type === 'checkbox' && fc.vals) {
+                    const clean = q.fieldName.replace('[]', '');
+                    fc.vals.forEach((v, i) => { data[clean + '$' + i] = v; });
+                }
+                if ((q.type === 'text' || q.type === 'textarea') && fc.text) data[q.fieldName] = fc.text;
+                if (q.type === 'star' && fc.val) data[q.fieldName] = fc.val;
+            });
         }
-    });
-    return data;
+        return data;
+    }
+
+    async function submitOne(data) {
+        // 1. 先填页面上的表单（点击 jqRadio/jqCheckbox，填文本）
+        QUESTIONS.forEach(q => {
+            const container = document.querySelector('.div_question:nth-of-type(' + (q.index) + '), fieldset:nth-of-type(' + (q.index) + '), .question:nth-of-type(' + (q.index) + ')');
+            if (!container) return;
+            switch (q.type) {
+                case 'radio': {
+                    const val = data[q.fieldName];
+                    const jqR = container.querySelector('a.jqRadio[val="' + val + '"]');
+                    if (jqR) jqR.click();
+                    else {
+                        const radios = container.querySelectorAll('input[type="radio"]');
+                        radios.forEach(r => { if (r.value === val) { r.checked = true; r.dispatchEvent(new Event('change', {bubbles:true})); } });
+                    }
+                    break;
+                }
+                case 'checkbox': {
+                    const clean = q.fieldName.replace('[]', '');
+                    const vals = [];
+                    for (let i = 0; data[clean + '$' + i] !== undefined; i++) vals.push(data[clean + '$' + i]);
+                    container.querySelectorAll('a.jqCheckbox').forEach(a => {
+                        if (a.classList.contains('jqcheck') || a.classList.contains('checked')) a.click();
+                    });
+                    container.querySelectorAll('input[type="checkbox"]').forEach(cb => { cb.checked = false; });
+                    vals.forEach(val => {
+                        const jqC = container.querySelector('a.jqCheckbox[val="' + val + '"]');
+                        if (jqC) jqC.click();
+                        else {
+                            const cb = container.querySelector('input[type="checkbox"][value="' + val + '"]');
+                            if (cb) { cb.checked = true; cb.dispatchEvent(new Event('change', {bubbles:true})); }
+                        }
+                    });
+                    break;
+                }
+                case 'text': case 'textarea': {
+                    const inp = container.querySelector('input[type="text"], textarea');
+                    if (inp) { inp.value = data[q.fieldName] || ''; inp.dispatchEvent(new Event('input', {bubbles:true})); }
+                    break;
+                }
+                case 'select': {
+                    const sel = container.querySelector('select');
+                    if (sel) { sel.value = data[q.fieldName]; sel.dispatchEvent(new Event('change', {bubbles:true})); }
+                    break;
+                }
+                case 'star': {
+                    const stars = container.querySelectorAll('a.rate_off');
+                    const n = parseInt(data[q.fieldName]) || 4;
+                    if (stars.length) stars[Math.min(n-1, stars.length-1)].click();
+                    break;
+                }
+            }
+        });
+        await sleep(300);
+        // 2. 点击提交按钮
+        const submitBtn = document.querySelector('#submit_button, .submitbutton, #ctlNext, input[type="submit"], button[type="submit"], [id*="submit"], [class*="submit"]');
+        if (submitBtn) {
+            for (const b of document.querySelectorAll('button, input[type="submit"], a')) {
+                if (b.offsetParent !== null && (b.id.includes('submit') || b.className.includes('submit') || b.textContent.includes('提交'))) {
+                    b.click();
+                    break;
+                }
+            }
+        }
+    }
+
+    console.log('🚀 开始提交 ' + CNT + ' 份, 间隔 ' + DLY + 'ms');
+    let ok = 0, fail = 0;
+    for (let i = 0; i < CNT; i++) {
+        try {
+            const data = genRandomAnswers();
+            await submitOne(data);
+            ok++;
+            console.log('✅ #'+ (i+1) +'/'+ CNT +' 成功('+ ok +') ' + Math.round((i+1)/CNT*100) + '%');
+        } catch(e) {
+            fail++;
+            console.error('❌ #'+ (i+1) +' 失败: ' + e.message);
+        }
+        if (i < CNT - 1) await sleep(DLY);
+    }
+    console.log('🎉 完成！成功:'+ ok +' 失败:'+ fail);
+
+    // 3. 通知后端扣次数
+    try {
+        const r = await fetch(BACKEND_URL + '/api/consume-credits', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + TOKEN },
+            body: JSON.stringify({ count: CNT })
+        });
+        const d = await r.json();
+        if (d.success) console.log('🪙 次数已扣除, 剩余: ' + d.credits);
+        else console.warn('次数扣除失败: ' + d.error);
+    } catch(e) { console.warn('通知后端失败: ' + e.message); }
+
+})();`;
+}
+
+function copyScript() {
+    const ta = $('#scriptCode');
+    ta.select();
+    document.execCommand('copy');
+    navigator.clipboard?.writeText(ta.value);
+    $('#copyOk').style.display = 'inline';
+    setTimeout(() => $('#copyOk').style.display = 'none', 3000);
 }
 
 function stopBatch() { isRunning = false; addLog('<span class="info">⏹ 已停止</span>'); }
-function addLog(h) { const e = $('#logBox'); e.innerHTML += h + '\n'; e.scrollTop = e.scrollHeight; }
 
 // ═══════════ Buy ═══════════
 function openBuy() { selectPreset(200); $('#buyModal').classList.add('show'); }

@@ -1,8 +1,4 @@
-// server.js
-// 问卷星自动填写平台 v2.0
-//   🆓 每日免费 3 次   💰 200份 = 18元
-//   🌐 随机 IP 伪装    🔐 用户注册/登录 + 管理员后台
-
+// Wjx Questionnaire Filler v2.1 - Cookie+Session Proxy Server
 const express = require('express');
 const axios = require('axios');
 const { JSDOM } = require('jsdom');
@@ -13,677 +9,137 @@ const { v4: uuidv4 } = require('uuid');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
-const JWT_SECRET = process.env.JWT_SECRET || 'wjx-filler-v2-' + uuidv4().slice(0, 8);
+const JWT_SECRET = process.env.JWT_SECRET || 'wjx-v2-' + uuidv4().slice(0, 8);
 
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
-// ==================== 随机 IP 工具 ====================
-
-/** 生成随机中国 IP 地址 */
-function randomChinaIP() {
-    // 真实中国 IP 段范围
-    const ranges = [
-        { start: [1, 2, 4, 0], end: [1, 2, 4, 255] },        // 1.2.4.x
-        { start: [27, 0, 0, 0], end: [27, 255, 255, 255] },   // 27.x.x.x
-        { start: [36, 0, 0, 0], end: [36, 255, 255, 255] },
-        { start: [42, 0, 0, 0], end: [42, 255, 255, 255] },
-        { start: [49, 0, 0, 0], end: [49, 255, 255, 255] },
-        { start: [58, 0, 0, 0], end: [61, 255, 255, 255] },
-        { start: [101, 0, 0, 0], end: [101, 255, 255, 255] },
-        { start: [106, 0, 0, 0], end: [106, 255, 255, 255] },
-        { start: [110, 0, 0, 0], end: [125, 255, 255, 255] },
-        { start: [171, 0, 0, 0], end: [171, 255, 255, 255] },
-        { start: [175, 0, 0, 0], end: [175, 255, 255, 255] },
-        { start: [180, 0, 0, 0], end: [183, 255, 255, 255] },
-        { start: [202, 0, 0, 0], end: [203, 255, 255, 255] },
-        { start: [210, 0, 0, 0], end: [211, 255, 255, 255] },
-        { start: [218, 0, 0, 0], end: [223, 255, 255, 255] },
-    ];
-
-    const range = ranges[Math.floor(Math.random() * ranges.length)];
-    const oct1 = range.start[0];
-    const oct2 = range.start[1] + Math.floor(Math.random() * (range.end[1] - range.start[1] + 1));
-    const oct3 = Math.floor(Math.random() * 256);
-    const oct4 = 1 + Math.floor(Math.random() * 254);
-    return `${oct1}.${oct2}.${oct3}.${oct4}`;
+// Random China IP generator
+function randomIP() {
+    const r = [[1,2,4,0,255],[27,0,0,0,255],[36,0,0,0,255],[42,0,0,0,255],[49,0,0,0,255],[58,0,0,0,255],[61,0,0,0,255],
+        [101,0,0,0,255],[106,0,0,0,255],[110,0,0,0,255],[125,0,0,0,255],[171,0,0,0,255],[175,0,0,0,255],
+        [180,0,0,0,255],[183,0,0,0,255],[202,0,0,0,255],[203,0,0,0,255],[210,0,0,0,255],[211,0,0,0,255],[218,0,0,0,255]];
+    const x = r[Math.floor(Math.random() * r.length)];
+    return `${x[0]}.${x[1]+Math.floor(Math.random()*(x[2]-x[1]+1))}.${Math.floor(Math.random()*256)}.${1+Math.floor(Math.random()*254)}`;
 }
+let sessionIP = randomIP();
+function getIP() { sessionIP = randomIP(); return sessionIP; }
+function randUA() { return [
+    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/131.0.0.0 Safari/537.36',
+    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/130.0.0.0 Safari/537.36 Edg/130.0.0.0',
+    'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:132.0) Gecko/20100101 Firefox/132.0',
+    'Mozilla/5.0 (Macintosh; Intel Mac OS X 14_7) AppleWebKit/605.1.15 Safari/605.1.15',
+    'Mozilla/5.0 (Macintosh; Intel Mac OS X 14_7) AppleWebKit/537.36 Chrome/131.0.0.0 Safari/537.36',
+    'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 Chrome/131.0.0.0 Safari/537.36',
+    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/129.0.0.0 Safari/537.36',
+][Math.floor(Math.random()*7)]; }
 
-/** 保存当前 IP（用于同一份答卷内部保持 IP 一致性） */
-let currentSessionIP = randomChinaIP();
+// DB
+const { userGet,userGetById,userCreate,userAddCredits,userConsumeCredit,
+    creditLogAdd,orderCreate,orderGetById,orderGetByUser,orderGetPending,orderUpdateStatus,
+    announceGetActive,announceCreate,settingGet,settingSet,settingGetAll,
+    dailyFreeGet,dailyFreeSet,calculatePrice } = require('./db');
 
-/** 获取 IP（单次提交时翻新，批量时保持一定存活性） */
-function getSessionIP(refresh = true) {
-    if (refresh) currentSessionIP = randomChinaIP();
-    return currentSessionIP;
-}
+// JWT middleware
+function auth(req,res,next) { const t=req.headers.authorization?.replace('Bearer ',''); if(!t)return res.status(401).json({error:'请先登录'}); try{req.u=jwt.verify(t,JWT_SECRET);next()}catch(e){res.status(401).json({error:'登录过期'})} }
+function adm(req,res,next) { if(req.u.role!=='admin')return res.status(403).json({error:'需要管理员'}); next(); }
 
-/** 生成随机 User-Agent */
-const UA_LIST = [
-    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36',
-    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/127.0.0.0 Safari/537.36 Edg/127.0.0.0',
-    'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:129.0) Gecko/20100101 Firefox/129.0',
-    'Mozilla/5.0 (Macintosh; Intel Mac OS X 14_6_1) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Safari/605.1.15',
-    'Mozilla/5.0 (Macintosh; Intel Mac OS X 14.6) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36',
-    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36',
-    'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36',
-];
-function randomUA() { return UA_LIST[Math.floor(Math.random() * UA_LIST.length)]; }
+// ── Auth ──
+app.post('/api/auth/register',(req,res)=>{
+    try{const{username,password}=req.body;if(!username||!password)return res.status(400).json({error:'输入用户名密码'});if(username.length<3||password.length<6)return res.status(400).json({error:'用户名>3位,密码>6位'}); if(userGet(username))return res.status(400).json({error:'用户名已存在'}); const u=userCreate(username,bcrypt.hashSync(password,10)); if(!u)return res.status(500).json({error:'注册失败'}); const fq=parseInt(settingGet('daily_free_quota','3'));userAddCredits(u.id,fq);creditLogAdd(u.id,fq,'free_daily','注册赠送');const token=jwt.sign({id:u.id,username,role:u.role},JWT_SECRET,{expiresIn:'7d'});res.json({success:true,token,user:{id:u.id,username,role:u.role,credits:fq}})}catch(e){res.status(500).json({error:'注册失败'})}
+});
+app.post('/api/auth/login',(req,res)=>{
+    try{const{username,password}=req.body;const u=userGet(username);if(!u||!bcrypt.compareSync(password,u.password_hash))return res.status(400).json({error:'用户名或密码错误'});grantDaily(u.id);const nu=userGetById(u.id);const token=jwt.sign({id:nu.id,username:nu.username,role:nu.role},JWT_SECRET,{expiresIn:'7d'});res.json({success:true,token,user:{id:nu.id,username:nu.username,role:nu.role,credits:nu.credits,totalUsed:nu.total_used}})}catch(e){res.status(500).json({error:'登录失败'})}
+});
+app.get('/api/auth/me',auth,(req,res)=>{grantDaily(req.u.id);const u=userGetById(req.u.id);if(!u)return res.status(404).json({error:'不存在'});res.json({id:u.id,username:u.username,role:u.role,credits:u.credits,totalUsed:u.total_used})});
+function grantDaily(uid){const today=new Date().toLocaleDateString('zh');if(dailyFreeGet(uid)!==today){const u=userGetById(uid),fq=parseInt(settingGet('daily_free_quota','3'));if(u&&u.credits<fq){const nd=fq-u.credits;if(nd>0){userAddCredits(uid,nd);creditLogAdd(uid,nd,'free_daily','每日免额补充')}}dailyFreeSet(uid,today)}}
 
-// ==================== 数据库 ====================
-const {
-    userGet, userGetById, userCreate, userAddCredits, userConsumeCredit,
-    creditLogAdd, creditLogGetByUser,
-    orderCreate, orderGetById, orderGetByUser, orderGetPending, orderUpdateStatus,
-    announceGetActive, announceCreate,
-    settingGet, settingSet, settingGetAll,
-    dailyFreeGet, dailyFreeSet,
-    calculatePrice,
-} = require('./db');
+// ── Pricing ──
+app.get('/api/pricing',(req,res)=>{res.json({dailyFree:parseInt(settingGet('daily_free_quota','3')),unitPrice:'10元/100次+送10次',minBuy:parseInt(settingGet('min_buy_amount','100')),presets:[{amount:100,price:'10.00',bonus:10,receive:110},{amount:200,price:'20.00',bonus:20,receive:220,label:'推荐'},{amount:400,price:'40.00',bonus:40,receive:440}],formula:'100次=10元+送10次=实得110次'})});
+app.post('/api/orders/create',auth,(req,res)=>{
+    try{const{amount,paymentNote}=req.body;const p=calculatePrice(amount);const o=orderCreate(req.u.id,p.amount,p.priceCents,paymentNote||'');console.log(`[订单]${req.u.username} #${o.id}:${p.amount}份 ${p.yuan}元(赠${p.bonus}次)`);res.json({success:true,order:o,pricing:p,paymentInfo:{method:settingGet('payment_method',''),qrcode:settingGet('payment_qrcode',''),instructions:settingGet('payment_instructions','')}})}catch(e){res.status(500).json({error:e.message})}
+});
+app.post('/api/orders/self-confirm',auth,(req,res)=>{
+    try{const{orderId}=req.body;const o=orderGetById(orderId);if(!o)return res.status(404).json({error:'订单不存在'});if(o.user_id!==req.u.id)return res.status(403).json({error:'只能自己的'});if(o.status!=='pending')return res.status(400).json({error:'已处理'});const el=Date.now()-new Date(o.created_at).getTime();if(el<2000)return res.status(400).json({error:'稍后再确认'});orderUpdateStatus(orderId,'paid',null,'自助确认');const bonus=Math.floor(o.amount/100)*10;const total=o.amount+bonus;userAddCredits(o.user_id,total);creditLogAdd(o.user_id,total,'purchase',`订单#${orderId} 自助(${o.amount}+赠${bonus}=${total}次)`,orderId);const nu=userGetById(req.u.id);console.log(`[自助]${req.u.username}#${orderId}得${total}次`);res.json({success:true,message:`获得${total}次(赠${bonus}次)`,credits:nu.credits})}catch(e){res.status(500).json({error:e.message})}
+});
+app.get('/api/orders/my',auth,(req,res)=>{res.json({success:true,orders:orderGetByUser(req.u.id)})});
+app.get('/api/credits/log',auth,(req,res)=>{res.json({success:true,logs:[]})});
+app.get('/api/public-settings',(req,res)=>{res.json({siteName:settingGet('site_name',''),dailyFree:parseInt(settingGet('daily_free_quota','3')),priceYuan:'10',minBuy:parseInt(settingGet('min_buy_amount','100')),paymentQrcode:settingGet('payment_qrcode',''),paymentInstructions:settingGet('payment_instructions','')})});
+app.get('/api/announcements',(req,res)=>{res.json({success:true,announcement:announceGetActive()})});
 
-// ==================== JWT 认证中间件 ====================
+// ── Admin ──
+app.get('/api/admin/orders/pending',auth,adm,(req,res)=>{res.json({success:true,orders:orderGetPending()})});
+app.post('/api/admin/orders/approve',auth,adm,(req,res)=>{
+    try{const{orderId,adminNote}=req.body;const o=orderGetById(orderId);if(!o||o.status!=='pending')return res.status(400).json({error:'状态错误'});orderUpdateStatus(orderId,'paid',req.u.id,adminNote||'');const bonus=Math.floor(o.amount/100)*10;const total=o.amount+bonus;userAddCredits(o.user_id,total);creditLogAdd(o.user_id,total,'purchase',`#${orderId}(${o.amount}+赠${bonus})`,orderId);console.log(`[管理审核]#${orderId}通过`);res.json({success:true,message:`已到账${total}次`})}catch(e){res.status(500).json({error:e.message})}
+});
+app.post('/api/admin/orders/reject',auth,adm,(req,res)=>{try{const{orderId,adminNote}=req.body;orderUpdateStatus(orderId,'cancelled',req.u.id,adminNote||'');res.json({success:true})}catch(e){res.status(500).json({error:e.message})}});
+app.post('/api/admin/grant-credits',auth,adm,(req,res)=>{try{const{username,amount,note}=req.body;const u=userGet(username);if(!u)return res.status(404).json({error:'用户不存在'});const a=parseInt(amount)||0;userAddCredits(u.id,a);creditLogAdd(u.id,a,'admin_grant',note||'管理员操作');res.json({success:true,message:`已给${username}${a>0?'+':''}${a}次`})}catch(e){res.status(500).json({error:e.message})}});
+app.get('/api/admin/settings',auth,adm,(req,res)=>{res.json({success:true,settings:settingGetAll()})});
+app.post('/api/admin/settings',auth,adm,(req,res)=>{try{for(const[k,v]of Object.entries(req.body))settingSet(k,String(v));res.json({success:true})}catch(e){res.status(500).json({error:e.message})}});
+app.post('/api/admin/announce',auth,adm,(req,res)=>{try{const{title,content}=req.body;announceCreate(title,content);res.json({success:true})}catch(e){res.status(500).json({error:e.message})}});
 
-function authMiddleware(req, res, next) {
-    const token = req.headers.authorization?.replace('Bearer ', '');
-    if (!token) return res.status(401).json({ error: '请先登录' });
-    try {
-        req.user = jwt.verify(token, JWT_SECRET);
-        next();
-    } catch (e) {
-        return res.status(401).json({ error: '登录已过期，请重新登录' });
-    }
-}
-
-function adminMiddleware(req, res, next) {
-    if (req.user.role !== 'admin') return res.status(403).json({ error: '需要管理员权限' });
-    next();
-}
-
-// ==================== 用户 API ====================
-
-app.post('/api/auth/register', (req, res) => {
-    try {
-        const { username, password } = req.body;
-        if (!username || !password) return res.status(400).json({ error: '请输入用户名和密码' });
-        if (username.length < 3 || username.length > 20) return res.status(400).json({ error: '用户名3-20个字符' });
-        if (password.length < 6) return res.status(400).json({ error: '密码至少6位' });
-
-        const existing = userGet(username);
-        if (existing) return res.status(400).json({ error: '用户名已存在' });
-
-        const hash = bcrypt.hashSync(password, 10);
-        const user = userCreate(username, hash);
-        if (!user) return res.status(500).json({ error: '注册失败' });
-
-        // 赠送初始免费额度
-        const freeQuota = parseInt(settingGet('daily_free_quota', '3'));
-        userAddCredits(user.id, freeQuota);
-        creditLogAdd(user.id, freeQuota, 'free_daily', '新用户注册赠送');
-
-        const token = jwt.sign({ id: user.id, username, role: user.role }, JWT_SECRET, { expiresIn: '7d' });
-        res.json({ success: true, token, user: { id: user.id, username, role: user.role, credits: freeQuota } });
-    } catch (err) {
-        console.error('[注册失败]', err);
-        res.status(500).json({ error: '注册失败' });
-    }
+// ── Core: Analyze ──
+app.post('/api/analyze',auth,async(req,res)=>{
+    try{const{url,html:pHtml}=req.body;grantDaily(req.u.id);
+        // Pasted HTML path
+        if(pHtml&&pHtml.length>500&&(pHtml.includes('div_question')||pHtml.includes('jqRadio')||pHtml.includes('fieldset'))){
+            const doc=new JSDOM(pHtml).window.document;
+            const qs=parseQs(doc);console.log(`[分析-粘贴]${req.u.username}:${qs.length}题`);
+            return res.json({success:true,title:doc.querySelector('title')?.textContent||'问卷',questionCount:qs.length,questions:qs,submitUrl:getSubmitUrl(doc,url||''),hiddenFields:getHidden(doc),rawHtml:pHtml});}
+        if(!url)return res.status(400).json({error:'请提供链接或粘贴源码'});
+        // Try fetching from url
+        const mirrors=[url];if(url.includes('wjx.cn')){mirrors.push(url.replace('www.wjx.cn','ks.wjx.top'),url.replace('wjx.cn','ks.wjx.top'))}
+        for(const mu of mirrors){try{const resp=await axios.get(mu,{headers:{'User-Agent':randUA(),'Accept':'text/html,*/*','Accept-Language':'zh,en;q=0.9','Referer':'https://www.wjx.cn/'},timeout:15000,maxRedirects:5});const h=resp.data;if(typeof h==='string'&&(h.includes('div_question')||h.includes('jqRadio'))){const doc=new JSDOM(h).window.document;const qs=parseQs(doc);console.log(`[分析-代理]${req.u.username}:${qs.length}题`);return res.json({success:true,title:doc.querySelector('title')?.textContent||'问卷',questionCount:qs.length,questions:qs,submitUrl:getSubmitUrl(doc,mu),hiddenFields:getHidden(doc),rawHtml:h})}}catch(e){console.log(`[分析]镜像失败:${mu}`)}}
+        return res.json({success:true,title:'需粘贴源码',questionCount:0,questions:[],submitUrl:url,hiddenFields:{},needPasteHtml:true,hint:'请打开问卷→右键→查看源代码→全选复制→粘贴到网站'})}
+    catch(e){res.status(500).json({error:e.message})}
 });
 
-app.post('/api/auth/login', (req, res) => {
-    try {
-        const { username, password } = req.body;
-        if (!username || !password) return res.status(400).json({ error: '请输入用户名和密码' });
-
-        const user = userGet(username);
-        if (!user) return res.status(400).json({ error: '用户名或密码错误' });
-
-        const valid = bcrypt.compareSync(password, user.password_hash);
-        if (!valid) return res.status(400).json({ error: '用户名或密码错误' });
-
-        // 每日免费额度
-        grantDailyFree(user.id);
-        const updated = userGetById(user.id);
-
-        const token = jwt.sign({ id: updated.id, username: updated.username, role: updated.role }, JWT_SECRET, { expiresIn: '7d' });
-        res.json({
-            success: true, token,
-            user: { id: updated.id, username: updated.username, role: updated.role, credits: updated.credits, totalUsed: updated.total_used },
-        });
-    } catch (err) {
-        console.error('[登录失败]', err);
-        res.status(500).json({ error: '登录失败' });
-    }
+// ── Core: Batch Submit ──
+app.post('/api/batch-submit',auth,async(req,res)=>{
+    try{const{submitUrl,formDataTemplate,count,delay,referer,questions,customConfig,answerMode,rawHtml}=req.body;
+        if(!submitUrl)return res.status(400).json({error:'缺少URL'});
+        grantDaily(req.u.id);const user=userGetById(req.u.id);
+        const total=Math.min(count||1,500);if(user.credits<total)return res.status(402).json({error:'次数不足',credits:user.credits,need:total});
+        if(!userConsumeCredit(user.id,total))return res.status(402).json({error:'扣次失败'});
+        creditLogAdd(user.id,-total,'consume',`批量提交${total}份`);
+        const delayMs=Math.max(delay||500,200);
+        let baseFields=formDataTemplate||{};
+        if(rawHtml&&rawHtml.includes('div_question')){try{const doc=new JSDOM(rawHtml).window.document;baseFields={...getHidden(doc),...baseFields}}catch(_){}}
+        let cookies='';try{const gr=await axios.get(submitUrl,{headers:{'User-Agent':randUA(),'Accept':'text/html,*/*','Accept-Language':'zh,en;q=0.9','Referer':'https://www.wjx.cn/'},timeout:15000,maxRedirects:5});const sc=gr.headers['set-cookie'];if(sc)cookies=(Array.isArray(sc)?sc:[sc]).map(c=>c.split(';')[0]).join('; ');console.log(`[Cookie]${cookies.slice(0,60)}`)}catch(e){console.log(`[Cookie]失败:${e.message}`)}
+        console.log(`[批量]${user.username}提交${total}份`);
+        res.setHeader('Content-Type','text/event-stream');res.setHeader('Cache-Control','no-cache');res.setHeader('Connection','keep-alive');res.setHeader('X-Accel-Buffering','no');
+        let ok=0,fail=0;
+        for(let i=0;i<total;i++){const ip=getIP(),ua=randUA();try{
+            let fd;if(answerMode==='custom'&&customConfig)fd=appCfg({...baseFields},customConfig,questions);else if(answerMode==='mixed'&&customConfig){fd=genAns({...baseFields},questions);fd=mergeCfg(fd,customConfig,questions)}else fd=genAns({...baseFields},questions);
+            const params=new URLSearchParams();Object.entries(fd).forEach(([k,v])=>{if(Array.isArray(v))v.forEach(x=>params.append(k,x));else params.append(k,v)});
+            const hdrs={'Content-Type':'application/x-www-form-urlencoded','Accept':'*/*','Accept-Language':'zh,en;q=0.9','Origin':new URL(submitUrl).origin,'Referer':submitUrl,'X-Requested-With':'XMLHttpRequest','X-Forwarded-For':ip,'X-Real-IP':ip,'User-Agent':ua};if(cookies)hdrs['Cookie']=cookies;
+            const resp=await axios.post(submitUrl,params.toString(),{headers:hdrs,timeout:20000,maxRedirects:3});
+            const rd=typeof resp.data==='string'?resp.data:JSON.stringify(resp.data);
+            const isOk=resp.status===200&&(rd.length<2000||rd.includes('成功')||rd.includes('提交')||rd.includes('谢谢')||rd.includes('success')||rd.includes('true'));isOk?ok++:fail++;
+            res.write(`data:${JSON.stringify({type:'progress',current:i+1,total,success:ok,fail,percent:Math.round((i+1)/total*100),ip})}\n\n`);
+        }catch(e){fail++;res.write(`data:${JSON.stringify({type:'progress',current:i+1,total,success:ok,fail,percent:Math.round((i+1)/total*100),lastError:e.message,ip})}\n\n`)}
+        if(i<total-1)await s(delayMs)}
+        const nu=userGetById(user.id);res.write(`data:${JSON.stringify({type:'complete',total,success:ok,fail})}\n\n`);res.write(`data:${JSON.stringify({type:'credits',credits:nu.credits})}\n\n`);console.log(`[批量完成]${user.username}:${ok}/${total}`);res.end()
+    }catch(e){console.error(e);if(!res.headersSent)res.status(500).json({error:e.message});else{res.write(`data:${JSON.stringify({type:'error',error:e.message})}\n\n`);res.end()}}
 });
 
-app.get('/api/auth/me', authMiddleware, (req, res) => {
-    grantDailyFree(req.user.id);
-    const user = userGetById(req.user.id);
-    if (!user) return res.status(404).json({ error: '用户不存在' });
-    res.json({ id: user.id, username: user.username, role: user.role, credits: user.credits, totalUsed: user.total_used });
-});
-
-function grantDailyFree(userId) {
-    const today = new Date().toLocaleDateString('zh-CN');
-    const last = dailyFreeGet(userId);
-    if (last !== today) {
-        const user = userGetById(userId);
-        const freeQuota = parseInt(settingGet('daily_free_quota', '3'));
-        if (user && user.credits < freeQuota) {
-            const need = freeQuota - user.credits;
-            if (need > 0) {
-                userAddCredits(userId, need);
-                creditLogAdd(userId, need, 'free_daily', '每日免费额度补充');
-            }
-        }
-        dailyFreeSet(userId, today);
-    }
-}
-
-// ==================== 订单 API ====================
-
-app.get('/api/pricing', (req, res) => {
-    const dailyFree = settingGet('daily_free_quota', '3');
-    res.json({
-        dailyFree: parseInt(dailyFree),
-        unitPrice: '10元/100次（买100送10，实得110次）',
-        minBuy: parseInt(settingGet('min_buy_amount', '100')),
-        presets: [
-            { amount: 100, price: '10.00', bonus: 10, receive: 110, label: '基础包' },
-            { amount: 200, price: '20.00', bonus: 20, receive: 220, label: '推荐包' },
-            { amount: 400, price: '40.00', bonus: 40, receive: 440, label: '超值包' },
-        ],
-        formula: '每100次=10元，每100次再送10次。例：买200次得220次=20元',
-        bonusRule: '每满100次送10次',
-    });
-});
-
-app.post('/api/orders/create', authMiddleware, (req, res) => {
-    try {
-        const { amount, paymentNote } = req.body;
-        if (!amount || amount <= 0) return res.status(400).json({ error: '请输入有效的购买份数' });
-        const pricing = calculatePrice(amount);
-        // 订单记录原始购买量，赠送在审核时加上
-        const order = orderCreate(req.user.id, pricing.amount, pricing.priceCents, paymentNote || '');
-        console.log(`[订单] 用户${req.user.username} 创建 #${order.id}: ${pricing.amount}份 ${pricing.yuan}元 (送${pricing.bonus}次，实得${pricing.totalReceive})`);
-        res.json({
-            success: true, order,
-            pricing,
-            paymentInfo: {
-                method: settingGet('payment_method', '微信扫码支付'),
-                qrcode: settingGet('payment_qrcode', ''),
-                instructions: settingGet('payment_instructions', ''),
-            },
-        });
-    } catch (err) {
-        console.error('[创建订单失败]', err);
-        res.status(500).json({ error: '创建订单失败' });
-    }
-});
-
-app.get('/api/orders/my', authMiddleware, (req, res) => {
-    res.json({ success: true, orders: orderGetByUser(req.user.id) });
-});
-
-// 用户自助确认付款（解放双手，无需管理员手动审核）
-app.post('/api/orders/self-confirm', authMiddleware, (req, res) => {
-    try {
-        const { orderId } = req.body;
-        const order = orderGetById(orderId);
-        if (!order) return res.status(404).json({ error: '订单不存在' });
-        if (order.user_id !== req.user.id) return res.status(403).json({ error: '只能确认自己的订单' });
-        if (order.status !== 'pending') return res.status(400).json({ error: '该订单已处理' });
-
-        // 订单创建后至少等10秒才能自助确认
-        const elapsed = Date.now() - new Date(order.created_at).getTime();
-        if (elapsed < 2000) return res.status(400).json({ error: '订单刚创建，请稍后确认' });
-
-        orderUpdateStatus(orderId, 'paid', null, '用户自助确认');
-        const bonus = Math.floor(order.amount / 100) * 10;
-        const totalCredits = order.amount + bonus;
-        userAddCredits(order.user_id, totalCredits);
-        creditLogAdd(order.user_id, totalCredits, 'purchase',
-            `订单#${orderId} 自助确认 (${order.amount}+赠送${bonus}=${totalCredits}次)`, orderId);
-
-        const updatedUser = userGetById(req.user.id);
-        console.log(`[自助确认] ${req.user.username} 订单#${orderId}，得${totalCredits}次`);
-        res.json({ success: true, message: `确认成功！获得 ${totalCredits} 次（含赠送 ${bonus} 次）`, credits: updatedUser.credits });
-    } catch (err) { res.status(500).json({ error: '操作失败' }); }
-});
-
-app.get('/api/credits/log', authMiddleware, (req, res) => {
-    res.json({ success: true, logs: creditLogGetByUser(req.user.id) });
-});
-
-app.get('/api/public-settings', (req, res) => {
-    res.json({
-        siteName: settingGet('site_name', '问卷星自动填写平台'),
-        dailyFree: parseInt(settingGet('daily_free_quota', '3')),
-        priceYuan: (parseInt(settingGet('price_per_200', '1800')) / 100).toFixed(2),
-        minBuy: parseInt(settingGet('min_buy_amount', '200')),
-        paymentQrcode: settingGet('payment_qrcode', ''),
-        paymentInstructions: settingGet('payment_instructions', ''),
-    });
-});
-
-app.get('/api/announcements', (req, res) => {
-    const a = announceGetActive();
-    res.json({ success: true, announcement: a });
-});
-
-// ==================== 管理员 API ====================
-
-app.get('/api/admin/orders/pending', authMiddleware, adminMiddleware, (req, res) => {
-    res.json({ success: true, orders: orderGetPending() });
-});
-
-app.post('/api/admin/orders/approve', authMiddleware, adminMiddleware, (req, res) => {
-    try {
-        const { orderId, adminNote } = req.body;
-        const order = orderGetById(orderId);
-        if (!order) return res.status(404).json({ error: '订单不存在' });
-        if (order.status !== 'pending') return res.status(400).json({ error: '状态不是待支付' });
-
-        orderUpdateStatus(orderId, 'paid', req.user.id, adminNote || '');
-
-        // 计算赠送: 每100次送10次
-        const bonus = Math.floor(order.amount / 100) * 10;
-        const totalCredits = order.amount + bonus;
-        userAddCredits(order.user_id, totalCredits);
-        creditLogAdd(order.user_id, totalCredits, 'purchase', `订单#${orderId} 已支付 (购买${order.amount}+赠送${bonus}=${totalCredits}次)`, orderId);
-
-        console.log(`[管理员] 订单#${orderId} 审核通过，用户获得${totalCredits}次（含赠送${bonus}）`);
-        res.json({ success: true, message: `已确认，用户获得${totalCredits}次（含赠送${bonus}次）` });
-    } catch (err) { res.status(500).json({ error: '操作失败' }); }
-});
-
-app.post('/api/admin/orders/reject', authMiddleware, adminMiddleware, (req, res) => {
-    try {
-        const { orderId, adminNote } = req.body;
-        const order = orderGetById(orderId);
-        if (!order) return res.status(404).json({ error: '订单不存在' });
-        orderUpdateStatus(orderId, 'cancelled', req.user.id, adminNote || '');
-        res.json({ success: true, message: '已拒绝' });
-    } catch (err) { res.status(500).json({ error: '操作失败' }); }
-});
-
-app.post('/api/admin/grant-credits', authMiddleware, adminMiddleware, (req, res) => {
-    try {
-        const { username, amount, note } = req.body;
-        const user = userGet(username);
-        if (!user) return res.status(404).json({ error: '用户不存在' });
-        const amt = parseInt(amount) || 0;
-        if (amt <= 0) return res.status(400).json({ error: '数量无效' });
-        userAddCredits(user.id, amt);
-        creditLogAdd(user.id, amt, 'admin_grant', note || '管理员赠送');
-        console.log(`[管理员] 手动给${username}充值${amt}次`);
-        res.json({ success: true, message: `已为${username}增加${amt}次` });
-    } catch (err) { res.status(500).json({ error: '操作失败' }); }
-});
-
-app.get('/api/admin/settings', authMiddleware, adminMiddleware, (req, res) => {
-    res.json({ success: true, settings: settingGetAll() });
-});
-
-app.post('/api/admin/settings', authMiddleware, adminMiddleware, (req, res) => {
-    try {
-        for (const [key, value] of Object.entries(req.body)) settingSet(key, String(value));
-        res.json({ success: true, message: '设置已更新' });
-    } catch (err) { res.status(500).json({ error: '保存失败' }); }
-});
-
-app.post('/api/admin/announce', authMiddleware, adminMiddleware, (req, res) => {
-    try {
-        const { title, content } = req.body;
-        if (!title || !content) return res.status(400).json({ error: '标题和内容不能为空' });
-        announceCreate(title, content);
-        res.json({ success: true, message: '公告已发布' });
-    } catch (err) { res.status(500).json({ error: '发布失败' }); }
-});
-
-// ==================== 问卷代理 API（含随机IP） ====================
-
-// 分析问卷
-// 分析问卷（需要登录）- 返回用于页面提交的配置
-app.post('/api/analyze', authMiddleware, async (req, res) => {
-    try {
-        const { url } = req.body;
-        if (!url) return res.status(400).json({ error: '请提供问卷链接' });
-        grantDailyFree(req.user.id);
-        console.log(`[分析] ${req.user.username} 请求分析: ${url}`);
-
-        // 不再从服务器端请求问卷星——由浏览器端在用户自己的网络环境下请求
-        res.json({
-            success: true,
-            _note: '请在前端打开问卷星页面分析题目。由于问卷星限制海外IP，分析功能需要浏览器端完成。',
-        });
-    } catch (err) {
-        res.status(500).json({ success: false, error: err.message });
-    }
-});
-
-// POST /api/consume-credits —— 前端提交成功后回调扣除次数
-app.post('/api/consume-credits', authMiddleware, (req, res) => {
-    try {
-        const { count = 1 } = req.body;
-        grantDailyFree(req.user.id);
-        const user = userGetById(req.user.id);
-        const totalCount = Math.min(count || 1, 500);
-
-        if (user.credits < totalCount) {
-            return res.status(402).json({ error: '次数不足', credits: user.credits, required: totalCount });
-        }
-
-        if (!userConsumeCredit(req.user.id, totalCount)) {
-            return res.status(402).json({ error: '次数扣减失败' });
-        }
-        creditLogAdd(req.user.id, -totalCount, 'consume', `前端直接提交${totalCount}份`);
-
-        const updated = userGetById(req.user.id);
-        console.log(`[扣减] ${req.user.username} 消费${totalCount}次, 余额:${updated.credits}`);
-        res.json({ success: true, credits: updated.credits, consumed: totalCount });
-    } catch (err) {
-        res.status(500).json({ error: err.message });
-    }
-});
-
-// 批量提交（含随机IP）
-app.post('/api/batch-submit', authMiddleware, async (req, res) => {
-    try {
-        const { submitUrl, formDataTemplate, count, delay, referer, questions, customConfig, answerMode } = req.body;
-        if (!submitUrl || !formDataTemplate) return res.status(400).json({ error: '缺少必要参数' });
-
-        grantDailyFree(req.user.id);
-        const user = userGetById(req.user.id);
-        const totalCount = Math.min(count || 1, 500);
-
-        if (user.credits < totalCount) {
-            return res.status(402).json({
-                error: '次数不足', credits: user.credits, required: totalCount,
-                hint: `剩余 ${user.credits} 次，需要 ${totalCount} 次。请购买更多次数。`,
-            });
-        }
-
-        if (!userConsumeCredit(user.id, totalCount)) {
-            return res.status(402).json({ error: '次数扣减失败' });
-        }
-        creditLogAdd(user.id, -totalCount, 'consume', `批量提交${totalCount}份`);
-
-        const delayMs = Math.max(delay || 500, 200);
-        console.log(`[批量] ${user.username} 提交${totalCount}份, 余额:${userGetById(user.id).credits}`);
-
-        res.setHeader('Content-Type', 'text/event-stream');
-        res.setHeader('Cache-Control', 'no-cache');
-        res.setHeader('Connection', 'keep-alive');
-        res.setHeader('X-Accel-Buffering', 'no');
-
-        let successCount = 0, failCount = 0;
-
-        for (let i = 0; i < totalCount; i++) {
-            // 🌐 每N份换一个IP（N随机5-15）
-            const ipRefreshInterval = 5 + Math.floor(Math.random() * 11);
-            const ip = (i % ipRefreshInterval === 0) ? getSessionIP(true) : getSessionIP(false);
-            const ua = randomUA();
-
-            try {
-                let formData;
-                if (answerMode === 'custom' && customConfig) {
-                    formData = applyCustomConfig(formDataTemplate, customConfig, questions);
-                } else if (answerMode === 'mixed' && customConfig) {
-                    formData = generateRandomAnswers(formDataTemplate, questions);
-                    formData = mergeCustomConfig(formData, customConfig, questions);
-                } else {
-                    formData = generateRandomAnswers(formDataTemplate, questions);
-                }
-
-                const params = new URLSearchParams();
-                for (const [key, value] of Object.entries(formData)) {
-                    if (Array.isArray(value)) value.forEach(v => params.append(key, v));
-                    else params.append(key, value);
-                }
-
-                const resp = await axios.post(submitUrl, params.toString(), {
-                    headers: {
-                        'User-Agent': ua,
-                        'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
-                        'Accept': '*/*',
-                        'Accept-Language': 'zh-CN,zh;q=0.9',
-                        'Origin': new URL(submitUrl).origin,
-                        'Referer': referer || submitUrl,
-                        'X-Requested-With': 'XMLHttpRequest',
-                        'X-Forwarded-For': ip,
-                        'X-Real-IP': ip,
-                        'Client-IP': ip,
-                    },
-                    timeout: 15000,
-                    maxRedirects: 3,
-                });
-
-                const rd = typeof resp.data === 'string' ? resp.data : JSON.stringify(resp.data);
-                if ((resp.status === 200 && rd.includes('成功')) || resp.status === 200 && rd.length < 500) successCount++;
-                else failCount++;
-
-                res.write(`data: ${JSON.stringify({
-                    type: 'progress', current: i + 1, total: totalCount,
-                    success: successCount, fail: failCount,
-                    percent: Math.round(((i + 1) / totalCount) * 100),
-                    ip: ip,
-                })}\n\n`);
-
-            } catch (err) {
-                failCount++;
-                res.write(`data: ${JSON.stringify({
-                    type: 'progress', current: i + 1, total: totalCount,
-                    success: successCount, fail: failCount,
-                    percent: Math.round(((i + 1) / totalCount) * 100),
-                    lastError: err.message, ip: ip,
-                })}\n\n`);
-            }
-            if (i < totalCount - 1) await sleep(delayMs);
-        }
-
-        const updated = userGetById(req.user.id);
-        res.write(`data: ${JSON.stringify({ type: 'complete', total: totalCount, success: successCount, fail: failCount })}\n\n`);
-        res.write(`data: ${JSON.stringify({ type: 'credits', credits: updated.credits })}\n\n`);
-        console.log(`[批量完成] ${user.username}: ${successCount}/${totalCount} 成功, 余额:${updated.credits}`);
-        res.end();
-
-    } catch (err) {
-        console.error('[批量失败]', err);
-        if (!res.headersSent) res.status(500).json({ error: err.message });
-        else { res.write(`data: ${JSON.stringify({ type: 'error', error: err.message })}\n\n`); res.end(); }
-    }
-});
-
-// 单次提交
-app.post('/api/submit', authMiddleware, async (req, res) => {
-    try {
-        const { submitUrl, formData, referer } = req.body;
-        if (!submitUrl || !formData) return res.status(400).json({ error: '缺少必要参数' });
-
-        grantDailyFree(req.user.id);
-        const user = userGetById(req.user.id);
-        if (user.credits < 1) return res.status(402).json({ error: '次数不足', credits: 0 });
-
-        userConsumeCredit(user.id, 1);
-        creditLogAdd(user.id, -1, 'consume', '单次提交');
-
-        const ip = getSessionIP(true);
-        const ua = randomUA();
-        const params = new URLSearchParams();
-        for (const [k, v] of Object.entries(formData)) {
-            if (Array.isArray(v)) v.forEach(x => params.append(k, x));
-            else params.append(k, v);
-        }
-
-        const resp = await axios.post(submitUrl, params.toString(), {
-            headers: {
-                'User-Agent': ua,
-                'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
-                'Accept': '*/*',
-                'Accept-Language': 'zh-CN,zh;q=0.9',
-                'Origin': new URL(submitUrl).origin,
-                'Referer': referer || submitUrl,
-                'X-Requested-With': 'XMLHttpRequest',
-                'X-Forwarded-For': ip,
-                'X-Real-IP': ip,
-                'Client-IP': ip,
-            },
-            timeout: 15000,
-            maxRedirects: 3,
-        });
-
-        res.json({ success: true, status: resp.status, ip });
-    } catch (err) {
-        res.status(500).json({ error: err.message });
-    }
-});
-
-app.get('/api/health', (req, res) => {
-    res.json({ status: 'ok', uptime: process.uptime(), ip: getSessionIP(false) });
-});
-
-// ==================== 问卷解析函数 ====================
-
-function parseQuestions(doc) {
-    const questions = [];
-    const containers = findQuestionContainers(doc);
-    containers.forEach((container, idx) => {
-        const type = detectType(container);
-        if (type === 'unknown') return;
-        const title = extractTitle(container);
-        if (!title || title.length < 2) return;
-        questions.push({ index: idx + 1, type, title: title.slice(0, 120), options: extractOptions(container, type), fieldName: extractFieldName(container, type) });
-    });
-    return questions;
-}
-
-function findQuestionContainers(doc) {
-    for (const sel of ['.div_question', 'fieldset', '.question', '.field', '[id^="divquestion"]', '.topic', '.ui-field-contain']) {
-        const els = doc.querySelectorAll(sel);
-        if (els.length >= 2) return Array.from(els);
-    }
-    return [];
-}
-
-function detectType(c) {
-    const h = (c.outerHTML || '');
-    if (h.includes('sortrank')) return 'sort';
-    if (h.includes('rate_off') || h.includes('rate_on')) return 'star';
-    if (h.includes('jqCheckbox') || c.querySelector('input[type="checkbox"]')) return 'checkbox';
-    if (h.includes('jqRadio') || c.querySelector('input[type="radio"]')) return 'radio';
-    if (c.querySelector('select')) return 'select';
-    if (c.querySelector('textarea')) return 'textarea';
-    if (c.querySelector('input[type="text"], input:not([type])')) return 'text';
-    return 'unknown';
-}
-
-function extractTitle(c) {
-    for (const s of ['.div_title_question', 'legend', '.field-label', 'label:first-of-type']) {
-        const e = c.querySelector(s);
-        if (e && e.textContent.trim().length > 1) return e.textContent.replace(/\s+/g, ' ').trim();
-    }
-    return c.textContent.replace(/\s+/g, ' ').trim().slice(0, 100);
-}
-
-function extractOptions(c, t) {
-    const opts = [];
-    if (t === 'radio') {
-        c.querySelectorAll('a.jqRadio').forEach((a, i) => opts.push({ index: i, text: a.textContent.trim().slice(0, 60), val: a.getAttribute('val') || String(i + 1) }));
-        if (!opts.length) c.querySelectorAll('input[type="radio"]').forEach((inp, i) => { const l = inp.closest('label') || inp.parentElement; opts.push({ index: i, text: (l?.textContent || '').replace(/\s+/g, ' ').trim().slice(0, 60), val: inp.value || String(i + 1) }); });
-    }
-    if (t === 'checkbox') {
-        c.querySelectorAll('a.jqCheckbox').forEach((a, i) => opts.push({ index: i, text: a.textContent.trim().slice(0, 60), val: a.getAttribute('val') || String(i + 1) }));
-        if (!opts.length) c.querySelectorAll('input[type="checkbox"]').forEach((inp, i) => { const l = inp.closest('label') || inp.parentElement; opts.push({ index: i, text: (l?.textContent || '').replace(/\s+/g, ' ').trim().slice(0, 60), val: inp.value || String(i + 1) }); });
-    }
-    return opts;
-}
-
-function extractFieldName(c, t) {
-    if (t === 'radio') { const r = c.querySelector('input[type="radio"]'); return r?.name || ''; }
-    if (t === 'checkbox') { const r = c.querySelector('input[type="checkbox"]'); return r?.name || ''; }
-    if (t === 'text' || t === 'textarea') { const r = c.querySelector('input[type="text"], input:not([type]), textarea'); return r?.name || ''; }
-    return '';
-}
-
-function extractSubmitUrl(doc, pageUrl) {
-    const a = doc.querySelector('form')?.getAttribute('action');
-    return a ? new URL(a, pageUrl).href : pageUrl.replace(/\?.*$/, '');
-}
-
-function extractHiddenFields(doc) {
-    const f = {};
-    doc.querySelectorAll('input[type="hidden"]').forEach(inp => { const n = inp.getAttribute('name'), v = inp.getAttribute('value'); if (n && v) f[n] = v; });
-    return f;
-}
-
-function generateRandomAnswers(template, questions) {
-    const data = { ...template };
-    if (!questions) return data;
-    questions.forEach(q => {
-        const fn = q.fieldName; if (!fn) return;
-        switch (q.type) {
-            case 'radio': if (q.options.length) data[fn] = q.options[Math.floor(Math.random() * q.options.length)].val; break;
-            case 'checkbox': {
-                const cnt = 1 + Math.floor(Math.random() * Math.min(3, q.options.length));
-                const p = [...q.options].sort(() => Math.random() - 0.5).slice(0, cnt);
-                const cl = fn.replace('[]', '');
-                fn.includes('[]') ? (data[cl] = p.map(x => x.val)) : p.forEach((x, i) => { data[`${cl}[${i}]`] = x.val; });
-                break;
-            }
-            case 'text': case 'textarea': data[fn] = ['不错，希望优化。','服务好，会推荐。','体验良好。','性价比高。','质量可靠。'][Math.floor(Math.random() * 5)]; break;
-            case 'select': if (q.options.length) data[fn] = q.options[Math.floor(Math.random() * q.options.length)].val; break;
-            case 'star': data[fn] = String(3 + Math.floor(Math.random() * 3)); break;
-        }
-    });
-    return data;
-}
-
-function applyCustomConfig(t, cfg, qs) {
-    const d = { ...t };
-    if (!qs) return d;
-    qs.forEach(q => {
-        const fn = q.fieldName; if (!fn) return;
-        const c = cfg[fn]; if (!c) return;
-        switch (q.type) {
-            case 'radio': case 'select': d[fn] = c.val || ''; break;
-            case 'checkbox': { const cl = fn.replace('[]', ''); fn.includes('[]') ? (d[cl] = c.vals || []) : (c.vals || []).forEach((v, i) => { d[`${cl}[${i}]`] = v; }); break; }
-            case 'text': case 'textarea': d[fn] = c.text || ''; break;
-            case 'star': d[fn] = c.val || '4'; break;
-        }
-    });
-    return d;
-}
-
-function mergeCustomConfig(rd, cfg, qs) {
-    const d = { ...rd };
-    if (!qs) return d;
-    qs.forEach(q => {
-        const fn = q.fieldName; if (!fn) return;
-        const c = cfg[fn]; if (!c) return;
-        switch (q.type) {
-            case 'radio': case 'select': if (c.val) d[fn] = c.val; break;
-            case 'checkbox': if (c.vals?.length) { const cl = fn.replace('[]', ''); fn.includes('[]') ? (d[cl] = c.vals) : c.vals.forEach((v, i) => { d[`${cl}[${i}]`] = v; }); } break;
-            case 'text': case 'textarea': if (c.text) d[fn] = c.text; break;
-            case 'star': if (c.val) d[fn] = c.val; break;
-        }
-    });
-    return d;
-}
-
-function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
-
-// ==================== 启动 ====================
-app.listen(PORT, () => {
-    const fq = settingGet('daily_free_quota', '3');
-    console.log(`
-╔═══════════════════════════════════════════════╗
-║     📋 问卷星自动填写平台 v2.0                 ║
-║                                               ║
-║  🌐 本地: http://localhost:${PORT}                ║
-║  👤 管理员: admin / admin123                  ║
-║  🆓 每日免费: ${fq} 次                         ║
-║  💰 100次=10元 (再送10次→实得110次)           ║
-║  🌐 随机IP: 已启用 (真实中国IP段)             ║
-║  💾 数据: JSON 文件存储 (data/ 目录)          ║
-╚═══════════════════════════════════════════════╝
-`);
-});
+// ── Core: consume-credits ──
+app.post('/api/consume-credits',auth,(req,res)=>{try{const{count=1}=req.body;grantDaily(req.u.id);const u=userGetById(req.u.id);const n=Math.min(count,500);if(u.credits<n)return res.status(402).json({error:'次数不足',credits:u.credits});if(!userConsumeCredit(u.id,n))return res.status(402).json({error:'扣次失败'});creditLogAdd(u.id,-n,'consume',`前端提交${n}份`);const nu=userGetById(u.id);res.json({success:true,credits:nu.credits,consumed:n})}catch(e){res.status(500).json({error:e.message})}});
+app.get('/api/health',(req,res)=>{res.json({status:'ok',uptime:process.uptime(),ip:getIP()})});
+
+// ── Parsing functions ──
+function parseQs(doc){const qs=[],cs=findCs(doc);cs.forEach((c,i)=>{const t=detT(c);if(t==='unknown')return;const ti=exTi(c);if(!ti||ti.length<2)return;qs.push({index:i+1,type:t,title:ti.slice(0,120),options:exOp(c,t),fieldName:exFn(c,t)})});return qs}
+function findCs(doc){for(const s of['.div_question','fieldset','.question','.field','[id^="divquestion"]','.topic']){const els=doc.querySelectorAll(s);if(els.length>=2)return Array.from(els)}return[]}
+function detT(c){const h=c.innerHTML||'';if(h.includes('sortrank'))return'sort';if(h.includes('rate_off')||h.includes('rate_on'))return'star';if(h.includes('jqCheckbox')||c.querySelector('input[type="checkbox"]'))return'checkbox';if(h.includes('jqRadio')||c.querySelector('input[type="radio"]'))return'radio';if(c.querySelector('select'))return'select';if(c.querySelector('textarea'))return'textarea';if(c.querySelector('input[type="text"],input:not([type])'))return'text';return'unknown'}
+function exTi(c){for(const s of['.div_title_question','legend','.field-label','label:first-of-type']){const e=c.querySelector(s);if(e&&e.textContent.trim().length>1)return e.textContent.replace(/\s+/g,' ').trim()}return c.textContent.replace(/\s+/g,' ').trim().slice(0,100)}
+function exOp(c,t){const o=[];if(t==='radio'){c.querySelectorAll('a.jqRadio').forEach((a,i)=>o.push({index:i,text:a.textContent.trim().slice(0,60),val:a.getAttribute('val')||String(i+1)}));if(!o.length)c.querySelectorAll('input[type="radio"]').forEach((inp,i)=>{const l=inp.closest('label')||inp.parentElement;o.push({index:i,text:(l?.textContent||'').replace(/\s+/g,' ').trim().slice(0,60),val:inp.value||String(i+1)})})}if(t==='checkbox'){c.querySelectorAll('a.jqCheckbox').forEach((a,i)=>o.push({index:i,text:a.textContent.trim().slice(0,60),val:a.getAttribute('val')||String(i+1)}));if(!o.length)c.querySelectorAll('input[type="checkbox"]').forEach((inp,i)=>{const l=inp.closest('label')||inp.parentElement;o.push({index:i,text:(l?.textContent||'').replace(/\s+/g,' ').trim().slice(0,60),val:inp.value||String(i+1)})})}return o}
+function exFn(c,t){if(t==='radio'){const r=c.querySelector('input[type="radio"]');return r?.name||''}if(t==='checkbox'){const r=c.querySelector('input[type="checkbox"]');return r?.name||''}if(t==='text'||t==='textarea'){const r=c.querySelector('input[type="text"],input:not([type]),textarea');return r?.name||''}return''}
+function getSubmitUrl(doc,u){const a=doc.querySelector('form')?.getAttribute('action');return a?new URL(a,u).href:u.replace(/\?.*$/,'')}
+function getHidden(doc){const f={};doc.querySelectorAll('input[type="hidden"]').forEach(inp=>{const n=inp.getAttribute('name'),v=inp.getAttribute('value');if(n&&v)f[n]=v});return f}
+function genAns(tpl,qs){const d={...tpl};if(!qs)return d;qs.forEach(q=>{const fn=q.fieldName;if(!fn)return;switch(q.type){case'radio':if(q.options.length)d[fn]=q.options[Math.floor(Math.random()*q.options.length)].val;break;case'checkbox':{const cnt=1+Math.floor(Math.random()*Math.min(3,q.options.length));const p=[...q.options].sort(()=>Math.random()-0.5).slice(0,cnt);const cl=fn.replace('[]','');fn.includes('[]')?(d[cl]=p.map(x=>x.val)):p.forEach((x,i)=>{d[`${cl}[${i}]`]=x.val});break}case'text':case'textarea':d[fn]=['体验不错','服务好功能全','使用体验良好','性价比不错','质量可靠'][Math.floor(Math.random()*5)];break;case'select':if(q.options.length)d[fn]=q.options[Math.floor(Math.random()*q.options.length)].val;break;case'star':d[fn]=String(3+Math.floor(Math.random()*3))}});return d}
+function appCfg(t,cfg,qs){const d={...t};if(!qs)return d;qs.forEach(q=>{const fn=q.fieldName;if(!fn)return;const c=cfg[fn];if(!c)return;switch(q.type){case'radio':case'select':d[fn]=c.val||'';break;case'checkbox':{const cl=fn.replace('[]','');fn.includes('[]')?(d[cl]=c.vals||[]):(c.vals||[]).forEach((v,i)=>{d[`${cl}[${i}]`]=v});break}case'text':case'textarea':d[fn]=c.text||'';break;case'star':d[fn]=c.val||'4'}});return d}
+function mergeCfg(r,cfg,qs){const d={...r};if(!qs)return d;qs.forEach(q=>{const fn=q.fieldName;if(!fn)return;const c=cfg[fn];if(!c)return;switch(q.type){case'radio':case'select':if(c.val)d[fn]=c.val;break;case'checkbox':if(c.vals?.length){const cl=fn.replace('[]','');fn.includes('[]')?(d[cl]=c.vals):c.vals.forEach((v,i)=>{d[`${cl}[${i}]`]=v})}break;case'text':case'textarea':if(c.text)d[fn]=c.text;break;case'star':if(c.val)d[fn]=c.val}});return d}
+function s(ms){return new Promise(r=>setTimeout(r,ms))}
+
+// ── Start ──
+app.listen(PORT,()=>{console.log(`\n=== Wjx Filler v2.1 ===\nPort:${PORT}\nAdmin:admin/admin123\nFree daily:${settingGet('daily_free_quota','3')}\nPrice:10yuan/100+b10\nCookie+Session+CORS bypass enabled\n`)});
