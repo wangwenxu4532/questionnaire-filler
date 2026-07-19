@@ -165,8 +165,9 @@
         </div>
         <div id="buyQrcode" style="text-align:center;margin:12px 0;background:#fafafa;padding:12px;border-radius:8px;">
             <div style="font-size:13px;font-weight:600;margin-bottom:8px;">📱 微信扫码付款</div>
-            <img id="buyQrImg" src="shoukuanma.jpg" style="max-width:180px;border-radius:8px;display:block;margin:0 auto;" alt="收款码">
-            <p style="font-size:11px;color:var(--tx2);margin-top:6px;" id="buyQrText">扫码付款 → 生成订单 → 点「我已付款」→ 自动到账</p>
+            <img id="buyQrImg" src="shoukuanma.jpg" style="max-width:200px;border-radius:8px;display:block;margin:0 auto;" alt="微信收款码" onerror="this.style.display='none'; this.nextElementSibling.style.display='block';">
+            <div style="display:none;color:var(--err);font-size:13px;margin-top:8px;">⚠️ 收款码加载失败。请联系管理员上传收款码图片。</div>
+            <p style="font-size:11px;color:var(--tx2);margin-top:6px;" id="buyQrText">扫码付款 → 生成订单 → 自动到账</p>
         </div>
         <div class="field" style="margin-bottom:12px;"><label>支付备注（选填）</label><input type="text" id="buyNote" placeholder="如转账单号后几位"></div>
         <button class="btn btn-pri" style="width:100%;padding:14px;font-size:16px;" onclick="doBuy()">📝 生成订单</button>
