@@ -82,7 +82,7 @@ app.post('/api/admin/announce',auth,adm,(req,res)=>{try{const{title,content}=req
 app.post('/api/analyze',auth,async(req,res)=>{
     try{const{url,html:pHtml}=req.body;grantDaily(req.u.id);
         // Pasted HTML path
-        if(pHtml&&pHtml.length>500&&(pHtml.includes('div_question')||pHtml.includes('jqRadio')||pHtml.includes('fieldset'))){
+        if(pHtml&&pHtml.length>200&&(pHtml.includes('div_question')||pHtml.includes('jqRadio')||pHtml.includes('fieldset')||pHtml.includes('<input'))){
             const doc=new JSDOM(pHtml).window.document;
             const qs=parseQs(doc);console.log(`[分析-粘贴]${req.u.username}:${qs.length}题`);
             return res.json({success:true,title:doc.querySelector('title')?.textContent||'问卷',questionCount:qs.length,questions:qs,submitUrl:getSubmitUrl(doc,url||''),hiddenFields:getHidden(doc),rawHtml:pHtml});}
