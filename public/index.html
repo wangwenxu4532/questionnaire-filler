@@ -362,16 +362,131 @@ async function doAnalyze() {
         toast('请输入有效的问卷星链接', 'e'); return;
     }
     $('#btnAnalyze').disabled = true; $('#btnAnalyze').textContent = '分析中...';
+
     try {
+        // 方式1：先试后端分析（有代理的域名可以）
         const r = await fetch('/api/analyze', { method: 'POST', headers: authHeaders(), body: JSON.stringify({ url }) });
         const d = await r.json();
-        if (!d.success) { toast(d.error || '分析失败', 'e'); return; }
-        surveyData = d; renderQuestions(d.questions);
-        $('#surveyBar').classList.remove('hidden'); $('#sName').textContent = d.title; $('#sCount').textContent = `共 ${d.questionCount} 题`;
-        ['step2', 'step3'].forEach(id => $('#' + id).classList.remove('hidden'));
-        toast(`✅ 检测到 ${d.questionCount} 题`, 's');
-    } catch (e) { toast('网络错误: ' + e.message, 'e'); }
-    finally { $('#btnAnalyze').disabled = false; $('#btnAnalyze').textContent = '🔍 分析问卷'; }
+
+        if (d.success && d.questionCount > 0) {
+            surveyData = d; renderQuestions(d.questions);
+            $('#surveyBar').classList.remove('hidden'); $('#sName').textContent = d.title; $('#sCount').textContent = `共 ${d.questionCount} 题`;
+            ['step2', 'step3'].forEach(id => $('#' + id).classList.remove('hidden'));
+            toast(`✅ 检测到 ${d.questionCount} 题`, 's');
+            return;
+        }
+    } catch (e) { /* 后端分析失败，用方式2 */ }
+
+    // 方式2：打开问卷页面，用户复制源码
+    parseFromPastedHTML(url);
+    $('#btnAnalyze').disabled = false; $('#btnAnalyze').textContent = '🔍 分析问卷';
+}
+
+function parseFromPastedHTML(url) {
+    // 显示粘贴框
+    const oldHtml = $('#qList').innerHTML;
+    $('#qList').innerHTML = `
+        <div style="text-align:center;padding:20px;">
+            <p style="font-size:14px;color:var(--tx2);margin-bottom:8px;">📋 请复制问卷页面的源码来解析：</p>
+            <p style="font-size:12px;color:var(--txt2);margin-bottom:12px;">
+                1. 在新标签页打开 <a href="${url}" target="_blank" style="color:var(--pri);">问卷链接</a><br>
+                2. 右键页面 → 查看网页源代码（Ctrl+U）<br>
+                3. 全选复制（Ctrl+A → Ctrl+C）<br>
+                4. 粘贴到下方：
+            </p>
+            <textarea id="sourcePaste" rows="8" style="width:100%;padding:10px;border:2px solid var(--bd);border-radius:8px;font-size:12px;font-family:monospace;" placeholder="在这里粘贴问卷页面的HTML源码..."></textarea>
+            <br>
+            <button class="btn btn-pri" onclick="parseSource()" style="margin-top:10px;">🔍 解析源码</button>
+        </div>`;
+    ['step2'].forEach(id => $('#' + id).classList.remove('hidden'));
+}
+
+function parseSource() {
+    const html = $('#sourcePaste').value.trim();
+    if (!html || html.length < 100) { toast('请先粘贴完整的HTML源码', 'e'); return; }
+    if (!html.includes('div_question') && !html.includes('jqRadio') && !html.includes('fieldset')) {
+        toast('未检测到问卷内容，请确认粘贴的是问卷页面的完整源码', 'e'); return;
+    }
+
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(html, 'text/html');
+    const url = $('#urlInput').value.trim();
+
+    // 用浏览器端解析函数
+    const containers = findQuestionContainers(doc);
+    const questions = [];
+    containers.forEach((container, idx) => {
+        const type = detectType(container);
+        if (type === 'unknown') return;
+        const title = extractTitle(container);
+        if (!title || title.length < 2) return;
+        const options = extractOptions(container, type);
+        const fieldName = extractFieldName(container, type);
+        questions.push({ index: idx + 1, type, title: title.slice(0, 120), options, fieldName });
+    });
+    const submitUrl = extractSubmitUrl(doc, url);
+    const hiddenFields = extractHiddenFields(doc);
+
+    surveyData = { title: doc.querySelector('title')?.textContent || '问卷', questions, submitUrl, hiddenFields, questionCount: questions.length };
+    if (questions.length === 0) { toast('解析失败，未找到题目', 'e'); return; }
+
+    renderQuestions(questions);
+    $('#surveyBar').classList.remove('hidden'); $('#sName').textContent = surveyData.title; $('#sCount').textContent = `共 ${questions.length} 题`;
+    ['step2', 'step3'].forEach(id => $('#' + id).classList.remove('hidden'));
+    toast(`✅ 成功解析 ${questions.length} 题`, 's');
+}
+
+function findQuestionContainers(doc) {
+    for (const sel of ['.div_question', 'fieldset', '.question', '.field', '[id^="divquestion"]', '.topic', '.ui-field-contain']) {
+        const els = doc.querySelectorAll(sel);
+        if (els.length >= 2) return Array.from(els);
+    }
+    return [];
+}
+function detectType(c) {
+    const h = c.innerHTML || c.outerHTML || '';
+    if (h.includes('sortrank')) return 'sort';
+    if (h.includes('rate_off') || h.includes('rate_on')) return 'star';
+    if (h.includes('jqCheckbox') || c.querySelector('input[type="checkbox"]')) return 'checkbox';
+    if (h.includes('jqRadio') || c.querySelector('input[type="radio"]')) return 'radio';
+    if (c.querySelector('select')) return 'select';
+    if (c.querySelector('textarea')) return 'textarea';
+    if (c.querySelector('input[type="text"], input:not([type])')) return 'text';
+    return 'unknown';
+}
+function extractTitle(c) {
+    for (const s of ['.div_title_question', 'legend', '.field-label', 'label:first-of-type']) {
+        const e = c.querySelector(s);
+        if (e && e.textContent.trim().length > 1) return e.textContent.replace(/\s+/g, ' ').trim();
+    }
+    return c.textContent.replace(/\s+/g, ' ').trim().slice(0, 100);
+}
+function extractOptions(c, t) {
+    const opts = [];
+    if (t === 'radio') {
+        c.querySelectorAll('a.jqRadio').forEach((a, i) => opts.push({ index: i, text: a.textContent.trim().slice(0, 60), val: a.getAttribute('val') || String(i + 1) }));
+        if (!opts.length) c.querySelectorAll('input[type="radio"]').forEach((inp, i) => { const l = inp.closest('label') || inp.parentElement; opts.push({ index: i, text: (l?.textContent || '').replace(/\s+/g, ' ').trim().slice(0, 60), val: inp.value || String(i + 1) }); });
+    }
+    if (t === 'checkbox') {
+        c.querySelectorAll('a.jqCheckbox').forEach((a, i) => opts.push({ index: i, text: a.textContent.trim().slice(0, 60), val: a.getAttribute('val') || String(i + 1) }));
+        if (!opts.length) c.querySelectorAll('input[type="checkbox"]').forEach((inp, i) => { const l = inp.closest('label') || inp.parentElement; opts.push({ index: i, text: (l?.textContent || '').replace(/\s+/g, ' ').trim().slice(0, 60), val: inp.value || String(i + 1) }); });
+    }
+    return opts;
+}
+function extractFieldName(c, t) {
+    if (t === 'radio') { const r = c.querySelector('input[type="radio"]'); return r?.name || ''; }
+    if (t === 'checkbox') { const r = c.querySelector('input[type="checkbox"]'); return r?.name || ''; }
+    if (t === 'text' || t === 'textarea') { const r = c.querySelector('input[type="text"], input:not([type]), textarea'); return r?.name || ''; }
+    return '';
+}
+function extractSubmitUrl(doc, pageUrl) {
+    const a = doc.querySelector('form')?.getAttribute('action');
+    return a ? new URL(a, pageUrl).href : pageUrl.replace(/\?.*$/, '');
+}
+function extractHiddenFields(doc) {
+    const f = {};
+    doc.querySelectorAll('input[type="hidden"]').forEach(inp => { const n = inp.getAttribute('name'), v = inp.getAttribute('value'); if (n && v) f[n] = v; });
+    return f;
 }
 
 // ═══════════ Questions ═══════════
